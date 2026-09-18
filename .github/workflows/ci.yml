@@ -1,0 +1,21 @@
+# CI: build + unit tests on every push/PR to main.
+# E2E regression suites (scripts/test-*.cjs) need seeded fixtures and a dev
+# server; run them locally or in a dedicated job once fixtures are CI-safe.
+name: CI
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node scripts/test-unit.cjs

@@ -1,0 +1,181 @@
+import { Link } from 'react-router-dom';
+import Layout from '../layouts/MainLayout';
+import { useAuth } from '../lib/auth/AuthContext';
+import { api } from '../lib/api/client';
+import { computeProfileCompleteness } from '../lib/onboardingData';
+import { getMyProfile } from '../lib/storage';
+import { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import {
+  User, MessageCircle, Eye, Users, Sparkles, Flame, ArrowRight, ShieldCheck
+} from 'lucide-react';
+
+export default function Dashboard() {
+  const { user } = useAuth();
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.getProfiles().then(p => {
+      setProfiles(p);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const rankedMatches = useMemo(() => {
+    if (!profiles.length) return [];
+    return profiles
+      .map(p => ({ ...p, score: p.matchScore || 85 }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 4);
+  }, [profiles]);
+
+  const topMatch = rankedMatches[0];
+  // Single source of truth: the onboarding wizard's scoring model. Falls back
+  // to 75 only when the member has never completed a profile draft.
+  const savedProfile = typeof getMyProfile === 'function' ? getMyProfile() : null;
+  const completeness = savedProfile
+    ? computeProfileCompleteness(savedProfile)
+    : 75;
+
+  const statCards = [
+    {
+      label: 'Profile Completeness',
+      value: completeness + '%',
+      icon: User,
+      color: 'var(--color-primary)',
+      bg: 'var(--color-primary-subtle)',
+      trend: completeness >= 80 ? 'On track' : 'Add more details to attract better matches',
+    },
+    {
+      label: 'Top Match Score',
+      value: (topMatch?.score || 88) + '%',
+      icon: Flame,
+      color: 'var(--color-danger)',
+      bg: 'var(--color-danger-subtle)',
+      trend: topMatch ? 'with ' + topMatch.displayName : 'Browse profiles to find matches',
+    },
+        {
+      label: 'Active Conversations',
+      value: '3',
+      icon: MessageCircle,
+      color: 'var(--color-success)',
+      bg: 'var(--color-success-subtle)',
+      trend: '1 unread message — demo data, not a real unread count',
+    },
+    {
+      label: 'Profile Views',
+      value: '47',
+      icon: Eye,
+      color: 'var(--color-accent)',
+      bg: 'var(--color-accent-subtle)',
+      trend: '+12 this week — demo figure',
+    },
+  ];
+
+  return (
+    <Layout>
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+        <div className="mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--color-ink)' }}>
+            Welcome back, {user?.displayName || 'there'}
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
+            Your matchmaking journey at a glance.
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {[...Array(4)].map((_, i) => <div key={i} className="h-28 rounded-xl skeleton" />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {statCards.map((card, i) => (
+              <motion.div
+                key={card.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.06, duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                className="card p-4 sm:p-5"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs sm:text-sm" style={{ color: 'var(--color-ink-secondary)' }}>{card.label}</span>
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: card.bg }}>
+                    <card.icon className="w-4 h-4" style={{ color: card.color }} />
+                  </div>
+                </div>
+                <p className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--color-ink)' }}>{card.value}</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--color-ink-tertiary)' }}>{card.trend}</p>
+              </motion.div>
+            ))}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1">
+            <h2 className="text-heading mb-4" style={{ color: 'var(--color-ink)' }}>Quick actions</h2>
+            <div className="space-y-3">
+              {[
+                { to: '/profiles', icon: Users, label: 'Browse profiles', desc: 'Discover your ideal match', color: 'var(--color-primary)', bg: 'var(--color-primary-subtle)' },
+                { to: '/messages', icon: MessageCircle, label: 'Messages', desc: 'Check your conversations', color: 'var(--color-success)', bg: 'var(--color-success-subtle)' },
+                { to: '/onboard', icon: Sparkles, label: 'Update profile', desc: 'Improve your match quality', color: 'var(--color-warning)', bg: 'var(--color-warning-subtle)' },
+              ].map(action => {
+              const ActionIcon = action.icon;
+              return (
+                <Link key={action.to} to={action.to} className="card card-interactive flex items-center gap-3 p-4">
+                  <div className="h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: action.bg }}>
+                    <ActionIcon className="w-5 h-5" style={{ color: action.color }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm" style={{ color: 'var(--color-ink)' }}>{action.label}</p>
+                    <p className="text-xs" style={{ color: 'var(--color-ink-secondary)' }}>{action.desc}</p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--color-ink-tertiary)' }} />
+                </Link>
+              );
+            })}
+            </div>
+          </div>
+
+          <div className="lg:col-span-2">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-heading" style={{ color: 'var(--color-ink)' }}>Top matches for you</h2>
+              <Link to="/profiles" className="link-primary text-sm font-semibold">View all</Link>
+            </div>
+            {loading ? (
+              <div className="grid grid-cols-2 gap-4">
+                {[...Array(4)].map((_, i) => <div key={i} className="h-48 rounded-xl skeleton" />)}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                {profiles.slice(0, 4).map((p, i) => (
+                  <motion.div
+                    key={p.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.06, duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                     <Link to={'/profiles/' + p.id} className="card card-interactive overflow-hidden block group">
+                       <div className="aspect-[4/3] overflow-hidden" style={{ background: 'var(--color-surface)' }}>
+                         <img src={p.photo} alt={p.displayName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} />
+                       </div>
+                      <div className="p-3">
+                        <p className="font-medium text-sm truncate" style={{ color: 'var(--color-ink)' }}>{p.displayName}, {p.age}</p>
+                        <p className="text-xs truncate" style={{ color: 'var(--color-ink-secondary)' }}>{p.city}, {p.country}</p>
+                        <div className="mt-2 flex items-center gap-1">
+                          <span className="badge badge-success text-xs font-bold">{p.matchScore || 92}%</span>
+                          {p.is_verified && <ShieldCheck className="w-3 h-3" style={{ color: 'var(--color-warning)' }} />}
+                        </div>
+                      </div>
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+    </Layout>
+  );
+}

@@ -1,0 +1,133 @@
+import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Heart, Bookmark, MapPin, Briefcase, Shield, Lock, Sparkles } from 'lucide-react';
+
+function excerptText(value, maxLength = 90) {
+  const text = String(value || '').trim();
+  if (!text) return 'No profile summary yet.';
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength).replace(/\s+\S*$/, '').trim() + '...';
+}
+
+export default function ProfileCard({ profile, className = '' }) {
+  const [saved, setSaved] = useState(false);
+  const [interested, setInterested] = useState(false);
+  const photoLocked = profile.photoAccess && profile.photoAccess !== 'public';
+  const about = excerptText(profile.about);
+
+  return (
+    <motion.article
+      className={'premium-card overflow-hidden flex flex-col group ' + className}
+      whileHover={{ y: -4 }}
+      transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+    >
+      <Link to={'/profiles/' + profile.id} className="block flex-1">
+        {/* Photo */}
+        <div className="relative aspect-[4/4.6] overflow-hidden" style={{ background: 'var(--color-surface)' }}>
+          <img
+            className={'w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.06] ' + (photoLocked ? 'blur-xl scale-110' : '')}
+            src={profile.photo || 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=700&q=70'}
+            alt={profile.displayName}
+            loading="lazy"
+            decoding="async"
+            onError={e => { e.currentTarget.style.opacity = '0'; }}
+            style={{ objectPosition: 'center top', position: 'relative', zIndex: 1 }}
+          />
+          {/* Elegant fallback monogram */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 flex items-center justify-center text-4xl font-bold select-none"
+            style={{
+              background: 'linear-gradient(160deg, #134e39 0%, #0c1220 70%)',
+              color: 'rgba(212,175,105,0.35)',
+              zIndex: 0,
+            }}
+          >
+            {(profile.displayName || '?').trim()[0]?.toUpperCase()}
+          </div>
+          {/* Bottom gradient scrim */}
+          <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
+
+          {photoLocked && (
+            <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(7,10,18,0.55)' }}>
+              <div className="text-center text-white space-y-1 px-4">
+                <div
+                  className="w-10 h-10 mx-auto rounded-full flex items-center justify-center mb-1.5"
+                  style={{ background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)' }}
+                >
+                  <Lock className="w-4 h-4" />
+                </div>
+                <p className="text-[11px] font-semibold">{profile.photoAccess === 'match' ? '💍 After match' : '👁️ After interest'}</p>
+                <p className="text-[9px] opacity-60">Private until mutual step</p>
+              </div>
+            </div>
+          )}
+
+          {/* Match score */}
+          <div
+            className="absolute top-2.5 left-2.5 px-2 py-1 rounded-full text-[10px] font-bold backdrop-blur-md"
+            style={{ background: 'rgba(11,15,23,0.6)', border: '1px solid rgba(255,255,255,0.18)', color: 'var(--color-success)', boxShadow: '0 4px 16px rgba(0,0,0,0.35)' }}
+          >
+            {profile.matchScore || 92}% match
+          </div>
+
+          {/* Verified */}
+          {profile.is_verified && (
+            <div
+              className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg,#34d399,#10b981)',
+                boxShadow: '0 4px 14px rgba(52,211,153,0.5)',
+                border: '1px solid rgba(255,255,255,0.25)',
+              }}
+            >
+              <Shield className="w-3.5 h-3.5 text-white" />
+            </div>
+          )}
+        </div>
+
+        {/* Body */}
+        <div className="p-3.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-sm truncate" style={{ color: 'var(--color-ink)' }}>
+              {profile.displayName}{profile.age ? ', ' + profile.age : ''}
+            </h3>
+            <Sparkles className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--color-primary)', opacity: 0.7 }} />
+          </div>
+          <p className="flex items-center gap-1 text-xs truncate" style={{ color: 'var(--color-ink-secondary)' }}>
+            <MapPin className="w-3 h-3 flex-shrink-0" /> {profile.city}, {profile.country}
+          </p>
+          <p className="flex items-center gap-1 text-xs" style={{ color: 'var(--color-ink-secondary)' }}>
+            <Briefcase className="w-3 h-3 flex-shrink-0" /> {profile.profession || 'Marriage-minded'}
+          </p>
+          <p className="text-xs leading-relaxed line-clamp-2" style={{ color: 'var(--color-ink-secondary)' }}>{about}</p>
+          {profile.religiosity && <span className="badge-primary text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: 'var(--color-primary-subtle)', color: 'var(--color-primary)' }}>{profile.religiosity}</span>}
+        </div>
+      </Link>
+
+      {/* Actions */}
+      <div className="px-3.5 pb-3.5 flex gap-2">
+        <button
+          onClick={e => { e.preventDefault(); setInterested(!interested); }}
+          className={'flex-1 py-2.5 min-h-[38px] text-xs font-semibold flex items-center justify-center gap-1 rounded-lg transition-all ' + (interested ? '' : 'btn-primary')}
+          style={{ minHeight: '38px', ...(interested ? { background: 'var(--color-primary-subtle)', color: 'var(--color-primary)', border: '1px solid var(--color-primary-subtle)' } : undefined) }}
+        >
+          <Heart className={'w-3.5 h-3.5 ' + (interested ? 'fill-current' : '')} />
+          {interested ? 'Interested' : 'Interest'}
+        </button>
+        <button
+          onClick={e => { e.preventDefault(); setSaved(!saved); }}
+          className="btn-secondary p-2.5"
+          aria-label="Save"
+          style={{ minWidth: '38px', minHeight: '38px' }}
+        >
+          <Bookmark
+            className="w-3.5 h-3.5"
+            style={{ color: saved ? 'var(--color-primary)' : 'var(--color-ink-tertiary)', fill: saved ? 'var(--color-primary)' : 'none' }}
+          />
+        </button>
+      </div>
+    </motion.article>
+  );
+}

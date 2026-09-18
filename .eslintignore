@@ -1,0 +1,4 @@
+# Generated build output — never lint
+dist/
+# Local logs and artifacts
+*.log
