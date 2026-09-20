@@ -158,7 +158,7 @@ export default function Community() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search communities or posts... (e.g. /hyderabad, /dubai)"
-              className="input pl-10 pr-4 py-2.5 text-sm"
+              className="input input-with-icon input-with-action text-sm"
               style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
               aria-label="Search communities and posts"
             />
@@ -281,7 +281,7 @@ export default function Community() {
                       value={newSubName}
                       onChange={e => setNewSubName(e.target.value)}
                       placeholder="e.g. hyderabad, dubai, london"
-                      className="input pl-8 pr-4 py-2.5 text-sm"
+                      className="input input-with-prefix text-sm"
                       style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
                     />
                   </div>

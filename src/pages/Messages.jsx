@@ -205,7 +205,7 @@ export default function Messages() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--color-ink-tertiary)' }} />
                 <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                   placeholder="Search conversations…" aria-label="Search conversations"
-                  className="input w-full" />
+                  className="input w-full input-with-icon" />
               </div>
             )}
           </div>

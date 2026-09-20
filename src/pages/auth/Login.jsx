@@ -92,7 +92,7 @@ export default function Login() {
                   onChange={handleChange}
                   required
                   placeholder="you@example.com"
-                  className="input w-full"
+                  className="input w-full input-with-icon"
                   style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
                 />
               </div>
@@ -111,7 +111,7 @@ export default function Login() {
                   required
                   minLength={6}
                   placeholder="••••••••"
-                  className="input w-full"
+                  className="input w-full input-with-icon input-with-action"
                   style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
                 />
                 <button

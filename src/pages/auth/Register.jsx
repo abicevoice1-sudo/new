@@ -36,7 +36,7 @@ export default function Register() {
     }
   };
 
-  const inputClass = 'input w-full';
+  const inputClass = 'input w-full input-with-icon';
 
   return (
     <div className="relative min-h-screen flex items-center justify-center px-6 py-12 overflow-hidden" style={{ background: 'var(--color-canvas)' }}>
@@ -109,7 +109,7 @@ export default function Register() {
               <label htmlFor="password" className="block mb-1.5 text-sm font-medium" style={{ color: 'var(--color-ink-secondary)' }}>Password</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-ink-faint)' }} />
-                <input type={showPassword ? 'text' : 'password'} id="password" name="password" value={formData.password} onChange={handleChange} required minLength={6} placeholder="Min 6 characters" className={inputClass} style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }} />
+                <input type={showPassword ? 'text' : 'password'} id="password" name="password" value={formData.password} onChange={handleChange} required minLength={6} placeholder="Min 6 characters" className={`${inputClass} input-with-action`} style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }} />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}

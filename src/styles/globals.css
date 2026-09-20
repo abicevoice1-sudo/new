@@ -714,6 +714,25 @@ select.input {
   cursor: pointer;
 }
 
+/* Inputs with a leading icon / prefix or a trailing icon button
+   ------------------------------------------------------------
+   `.input` is an unlayered component rule and `input.input` (0,1,1) beats
+   Tailwind utilities, because utilities ship inside `@layer utilities`.
+   So pl-11 / pl-10 / pl-8 / pr-4 in JSX never applied to `.input` fields
+   and the absolutely-positioned icons sat on top of the placeholder and
+   typed value. These classes carry the specificity needed to win. */
+.input.input-with-icon {
+  padding-left: 2.75rem; /* icon inset (0.75–1rem) + icon (1.25rem) + gap */
+}
+
+.input.input-with-prefix {
+  padding-left: 2rem; /* short text prefix, e.g. the "/" slug in Community */
+}
+
+.input.input-with-action {
+  padding-right: 2.75rem; /* trailing icon button, e.g. show-password toggle */
+}
+
 /* ============================================================
    COMPONENTS — Badge
    ============================================================ */

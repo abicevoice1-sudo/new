@@ -126,7 +126,7 @@ export default function Profiles() {
                 placeholder="Search by name, profession, city..."
                 value={filters.search}
                 onChange={e => setFilter('search', e.target.value)}
-                className="input pl-10"
+                className="input input-with-icon"
                 style={{ background: 'var(--color-surface)' }}
                 aria-label="Search profiles"
               />
