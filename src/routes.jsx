@@ -9,6 +9,7 @@ const Profiles = lazy(() => import('./pages/Profiles'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Blog = lazy(() => import('./pages/Blog'));
 const Community = lazy(() => import('./pages/Community'));
+const CommunityPost = lazy(() => import('./pages/CommunityPost'));
 const Contact = lazy(() => import('./pages/Contact'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Messages = lazy(() => import('./pages/Messages'));
@@ -64,6 +65,7 @@ const router = createBrowserRouter([
   { path: '/blog', element: <LazyRoute component={Blog} /> },
     { path: '/community', element: <LazyRoute component={Community} /> },
   { path: '/community/:slug', element: <LazyRoute component={Community} /> },
+  { path: '/community/:slug/post/:postId', element: <LazyRoute component={CommunityPost} /> },
   { path: '/contact', element: <LazyRoute component={Contact} /> },
   { path: '/agents', element: <LazyRoute component={Agents} /> },
   { path: '/pricing', element: <LazyRoute component={Pricing} /> },

@@ -1,63 +1,13 @@
 ﻿import { useState, useMemo, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import Layout from '../layouts/LandingLayout';
+import LoginGate from '../components/LoginGate';
 import { useAuth } from '../lib/auth/AuthContext';
-import { MessageCircle, Heart, Plus, Lock, Search, X, ChevronRight } from 'lucide-react';
-
-const DEFAULT_SUBREDDITS = [
-  { id: 'all', name: 'All', icon: '💰', members: 2400 },
-  { id: 'hyderabad', name: 'Hyderabad', icon: '🇮🇳', members: 340 },
-  { id: 'dubai', name: 'Dubai', icon: '🇦🇪', members: 280 },
-  { id: 'dallas', name: 'Dallas', icon: '🇺🇸', members: 195 },
-  { id: 'london', name: 'London', icon: '🇬🇧', members: 420 },
-  { id: 'toronto', name: 'Toronto', icon: '🇨🇦', members: 310 },
-  { id: 'reverts', name: 'Reverts', icon: '🧘', members: 180 },
-  { id: 'parents', name: 'Parents', icon: '👨‍👩‍👧‍👦', members: 220 },
-  { id: 'newlywed', name: 'Newlywed', icon: '💍', members: 150 },
-];
-
-const INITIAL_POSTS = [
-  { id: 1, sub: 'hyderabad', title: 'Best halal restaurants in Hyderabad for a first meeting?', author: 'Anonymous', avatar: 'A', replies: 12, likes: 24, time: '2h ago', tags: ['meeting'], pinned: true },
-  { id: 2, sub: 'dallas', title: 'How to balance career and marriage preparation?', author: 'Fatima Z.', avatar: 'F', replies: 18, likes: 31, time: '4h ago', tags: ['career'] },
-  { id: 3, sub: 'london', title: 'Tips for writing an authentic bio that reflects values', author: 'Anonymous', avatar: 'A', replies: 23, likes: 45, time: '6h ago', tags: ['profile'] },
-  { id: 4, sub: 'reverts', title: 'New reverts support group — weekly virtual meetups', author: 'Support Team', avatar: 'S', replies: 15, likes: 38, time: '8h ago', tags: ['support'], pinned: true },
-  { id: 5, sub: 'parents', title: 'How to involve wali without overstepping boundaries?', author: 'Anonymous', avatar: 'A', replies: 29, likes: 52, time: '1d ago', tags: ['wali'] },
-  { id: 6, sub: 'toronto', title: 'Understanding different sects — respectful dialogue', author: 'Imam Hassan', avatar: 'I', replies: 34, likes: 67, time: '1d ago', tags: ['faith'] },
-  { id: 7, sub: 'newlywed', title: 'Halal investment strategies for married couples', author: 'Anonymous', avatar: 'A', replies: 27, likes: 41, time: '2d ago', tags: ['finance'] },
-  { id: 8, sub: 'hyderabad', title: 'Eid gathering for single professionals — interested?', author: 'Community Mod', avatar: 'C', replies: 45, likes: 89, time: '3d ago', tags: ['event'] },
-  { id: 9, sub: 'dallas', title: 'Red flags in early conversations — what to watch for', author: 'Anonymous', avatar: 'A', replies: 31, likes: 56, time: '3d ago', tags: ['safety'] },
-  { id: 10, sub: 'reverts', title: 'Brothers: what helped you most after reverting?', author: 'Yusuf K.', avatar: 'Y', replies: 42, likes: 73, time: '4d ago', tags: ['reverts'] },
-  { id: 11, sub: 'dubai', title: 'Nikah preparation checklist — what documents do I need?', author: 'Anonymous', avatar: 'A', replies: 38, likes: 62, time: '5d ago', tags: ['nikah'] },
-  { id: 12, sub: 'dubai', title: 'Professional networking events for Muslims in Dubai?', author: 'Omar D.', avatar: 'O', replies: 21, likes: 44, time: '1w ago', tags: ['networking'] },
-];
-
-function LoginGate({ onClose }) {
-  return (
-    <div className="ai-backdrop" style={{ zIndex: 400 }} onClick={onClose}>
-      <div className="ai-drawer" style={{ width: '380px', maxWidth: '95vw', margin: '2rem auto', borderRadius: 'var(--radius-xl)', position: 'relative', top: '20vh' }} onClick={e => e.stopPropagation()}>
-        <div className="ai-drawer-header">
-          <div className="ai-orb"><Lock className="w-4 h-4" /></div>
-          <div><p className="ai-drawer-title">Join the conversation</p></div>
-          <button className="ai-icon-btn" onClick={onClose}><span style={{ fontSize: '1.25rem' }}>Ã—</span></button>
-        </div>
-        <div style={{ padding: '1.5rem' }}>
-          <p style={{ fontSize: '0.9375rem', color: 'var(--color-ink-secondary)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-            Create a free account or log in to comment, post, and join communities. Reading is open to everyone.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <Link to="/register" className="button primary w-full text-center py-2.5 font-semibold" onClick={onClose}>Create free account</Link>
-            <Link to="/auth/login" className="button w-full text-center py-2.5 font-semibold" onClick={onClose} style={{ background: 'var(--color-elevated)', color: 'var(--color-ink)', border: '1px solid var(--color-border)' }}>Log in</Link>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
+import { MessageCircle, Heart, Plus, Search, X, ChevronRight } from 'lucide-react';
+import { createCommunity, createPost, listCommunities, listPosts, postPath } from '../lib/communityData';
 
 export default function Community() {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
   const [activeSub, setActiveSub] = useState('all');
   const [showLoginGate, setShowLoginGate] = useState(false);
   const [showNewPost, setShowNewPost] = useState(false);
@@ -66,9 +16,9 @@ export default function Community() {
   const [anonymous, setAnonymous] = useState(true);
   const [newTitle, setNewTitle] = useState('');
   const [newBody, setNewBody] = useState('');
-  const [posts, setPosts] = useState(INITIAL_POSTS);
-  const [subreddits, setSubreddits] = useState(DEFAULT_SUBREDDITS);
-    const [newSubName, setNewSubName] = useState('');
+  const [posts, setPosts] = useState(() => listPosts());
+  const [subreddits, setSubreddits] = useState(() => listCommunities());
+  const [newSubName, setNewSubName] = useState('');
   const [newSubDesc, setNewSubDesc] = useState('');
 
   const { slug } = useParams();
@@ -76,7 +26,9 @@ export default function Community() {
 
   // Sync activeSub from URL slug on mount and when slug changes
   useEffect(() => {
-    if (slug && subreddits.some(s => s.id === slug)) {
+    if (!slug) {
+      setActiveSub('all');
+    } else if (subreddits.some(s => s.id === slug)) {
       setActiveSub(slug);
     }
   }, [slug, subreddits]);
@@ -84,7 +36,7 @@ export default function Community() {
   // Navigate to a community's URL slug
   const goToSub = (id) => {
     setActiveSub(id);
-    navigate(`/community/${id}`);
+    navigate(id === 'all' ? '/community' : `/community/${id}`);
   };
 
   const filtered = useMemo(() => {
@@ -93,7 +45,8 @@ export default function Community() {
       const q = searchQuery.toLowerCase();
       result = result.filter(p =>
         p.title.toLowerCase().includes(q) ||
-        p.tags.some(t => t.toLowerCase().includes(q)) ||
+        (p.body || '').toLowerCase().includes(q) ||
+        (p.tags || []).some(t => t.toLowerCase().includes(q)) ||
         p.author.toLowerCase().includes(q)
       );
     }
@@ -114,22 +67,29 @@ export default function Community() {
   }, [subreddits, searchQuery]);
 
   const activeSubData = subreddits.find(s => s.id === activeSub);
-  const handleComment = () => { if (!isLoggedIn) setShowLoginGate(true); };
   const handlePost = () => { if (!isLoggedIn) { setShowLoginGate(true); return; } setShowNewPost(true); };
   const submitPost = () => {
     if (!newTitle.trim()) return;
-    const post = { id: Date.now(), sub: activeSub === 'all' ? 'general' : activeSub, title: newTitle, author: anonymous ? 'Anonymous' : 'You', avatar: anonymous ? 'A' : 'Y', replies: 0, likes: 0, time: 'Just now', tags: [] };
-    setPosts([post, ...posts]);
+    const author = anonymous ? 'Anonymous' : (user?.displayName || 'You');
+    const post = createPost({
+      sub: activeSub === 'all' ? 'general' : activeSub,
+      title: newTitle,
+      body: newBody,
+      author,
+      avatar: author.trim().charAt(0).toUpperCase() || 'Y',
+    });
+    setPosts(listPosts());
     setNewTitle(''); setNewBody(''); setShowNewPost(false);
+    navigate(postPath(post));
   };
   const handleCreateSub = () => {
     if (!newSubName.trim()) return;
-    const id = newSubName.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (subreddits.some(s => s.id === id)) return;
-    setSubreddits([...subreddits, { id, name: newSubName, icon: '🌍', members: 1 }]);
+    const community = createCommunity({ name: newSubName });
+    if (!community) return;
+    setSubreddits(listCommunities());
     setNewSubName(''); setNewSubDesc(''); setShowCreateSub(false);
-    setActiveSub(id);
-    navigate(`/community/${id}`);
+    setActiveSub(community.id);
+    navigate(`/community/${community.id}`);
   };
 
   return (
@@ -209,7 +169,7 @@ export default function Community() {
 
         <div className="space-y-3">
           {filtered.map(post => (
-            <div key={post.id} className="rounded-xl p-4 transition-all cursor-pointer group" style={{ background: 'var(--color-elevated)', border: '1px solid var(--color-border)' }}>
+            <Link key={post.id} to={postPath(post)} className="block rounded-xl p-4 transition-all group" style={{ background: 'var(--color-elevated)', border: '1px solid var(--color-border)' }}>
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'var(--color-primary-subtle)' }}>
                   <span className="text-xs font-bold" style={{ color: 'var(--color-primary)' }}>{post.avatar}</span>
@@ -221,21 +181,24 @@ export default function Community() {
                     <span className="text-[10px]" style={{ color: 'var(--color-ink-faint)' }}>Â· {post.time}</span>
                   </div>
                   <h3 style={{ fontWeight: 600, color: 'var(--color-ink)', marginBottom: '0.15rem', lineHeight: 1.4 }} className="group-hover:text-primary transition-colors">{post.title}</h3>
+                  {post.body && (
+                    <p className="line-clamp-2" style={{ fontSize: '0.8125rem', color: 'var(--color-ink-secondary)', lineHeight: 1.6, marginBottom: '0.15rem' }}>{post.body}</p>
+                  )}
                   <p style={{ fontSize: '0.75rem', color: 'var(--color-ink-faint)' }}>by {post.author}</p>
                   <div className="flex items-center gap-3 mt-2 flex-wrap">
-                    <button onClick={handleComment} className="flex items-center gap-1 text-xs" style={{ color: 'var(--color-ink-secondary)' }}>
+                    <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--color-ink-secondary)' }}>
                       <MessageCircle className="w-3.5 h-3.5" /> {post.replies}
-                    </button>
+                    </span>
                     <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--color-ink-secondary)' }}>
                       <Heart className="w-3.5 h-3.5" /> {post.likes}
                     </span>
                     <div className="flex gap-1 ml-auto">
-                      {post.tags.map(tag => (<span key={tag} className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: 'var(--color-ink-secondary)', background: 'var(--color-surface)' }}>#{tag}</span>))}
+                      {(post.tags || []).map(tag => (<span key={tag} className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: 'var(--color-ink-secondary)', background: 'var(--color-surface)' }}>#{tag}</span>))}
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </main>
