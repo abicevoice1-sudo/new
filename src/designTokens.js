@@ -54,9 +54,11 @@ export const tokens = {
 
   fonts: {
     body: 'Inter',
-    // Heirloom display serif (reference signature), Fraunces for the dark theme
+    // One display serif for every surface — light *and* dark, every route.
+    // Mirrors --font-display in globals.css; `Fraunces` was listed here before
+    // but no stylesheet or component ever referenced it.
     displayLight: 'Cormorant Garamond',
-    displayDark: 'Fraunces',
+    displayDark: 'Cormorant Garamond',
   },
 
   radius: {

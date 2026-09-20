@@ -15,7 +15,10 @@
   /* Font families */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-display: 'Cormorant Garamond', 'Iowan Old Style', Georgia, serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  /* Mono ships no webfont — the only consumer is the ⌘K hint in the sidebar.
+     This stack is exactly what the browser fell back to before; the point is
+     that we stop declaring 'JetBrains Mono', a family no page ever downloaded. */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
 
   /* Color palette — Warm paper + sage + gold + rose */
   --color-canvas: #fffaf4;
@@ -279,6 +282,14 @@ body {
 .font-mono { font-family: var(--font-mono); }
 .tabular-nums { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 .text-measure { max-width: 65ch; }
+
+/* One heading voice on every page. Home used to be the only surface whose
+   h1–h3 rendered in the display serif (.hp-home), so the same product showed
+   two typographic systems depending on the route. h4–h6 stay in the UI sans
+   because they are used as small in-card labels, not page headings. */
+h1, h2, h3 {
+  font-family: var(--font-display);
+}
 
 .text-gradient-violet {
   background: linear-gradient(120deg, var(--color-primary), var(--color-violet));
@@ -3529,8 +3540,8 @@ button, a, input, select, textarea {
 }
 .hp-eyebrow-light { color: rgba(255, 246, 234, 0.85); }
 .hp-eyebrow-light span { background: linear-gradient(90deg, #d9b36a, rgba(255, 246, 234, 0.4)); }
+/* Heading face is set globally for h1–h3; only the colour lives here. */
 .hp-home h1, .hp-home h2, .hp-home h3 {
-  font-family: var(--font-display);
   color: var(--color-ink);
 }
 .hp-home h2 {
