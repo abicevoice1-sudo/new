@@ -1,6 +1,6 @@
 // ─── Community data — feed, communities and full-page post threads ──────────
-// Remote mode (VITE_API_URL set): everything below is Postgres through the
-// Express API — shared across devices and members. Local mode keeps the seeded
+// Remote mode (VITE_API_URL set): everything below is MariaDB through the
+// PHP API — shared across devices and members. Local mode keeps the seeded
 // feed + per-member browser storage so the product works offline/demo.
 import { read, write } from './api/storage';
 import { http, useRemote } from './api/transport';

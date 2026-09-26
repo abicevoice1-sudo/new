@@ -1,6 +1,6 @@
 // ─── Repository: typed CRUD over the storage adapter — or the real API ──────
-// When VITE_API_URL is set, every call below goes to Postgres through the
-// Express backend (privacy tiers + blocks enforced server-side). Otherwise the
+// When VITE_API_URL is set, every call below goes to MariaDB through the
+// PHP backend (privacy tiers + blocks enforced server-side). Otherwise the
 // same shapes resolve from per-member local storage (demo/offline mode).
 // Every method is async so switching modes changes zero call sites.
 import { read, write } from './storage';

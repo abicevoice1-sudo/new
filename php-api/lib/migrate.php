@@ -66,6 +66,8 @@ function migrateSchema(): void
 // created before a column was introduced never picks it up. That is exactly how
 // religiosity/education/marja' ended up collected in onboarding and then silently
 // discarded on save: the columns were never there. Every statement is idempotent.
+// NOTE: these columns are also declared in db/schema.sql so fresh installs get
+// them on the first request; this function remains for databases created earlier.
 function migrateAddProfileColumns(): void
 {
     $additions = [
