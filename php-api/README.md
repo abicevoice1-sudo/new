@@ -76,6 +76,30 @@ php-api/
   `storage/rate/` directory at startup so the suite stays re-runnable; against
   a remote `API_URL` it leaves the store alone.
 
+## Mail: what happens without SMTP credentials
+
+**You do not need SMTP.** This is the single most common cPanel surprise, so
+the adapter resolves its transport instead of assuming credentials exist:
+
+| `MAIL_TRANSPORT` | Resolves to when | Behaviour |
+|---|---|---|
+| *(blank)* | `SMTP_HOST` set → `smtp`; `APP_ENV=production` → `mail`; else → `dev` | auto |
+| `smtp` | — | PHPMailer if installed, else PHP `mail()`. Needs `SMTP_HOST`. |
+| `mail` | — | PHP `mail()`, which on cPanel routes through the account's own mailbox relay. Usually zero-config. |
+| `dev` | — | Writes the full message to the PHP error log and **delivers nothing**. |
+
+So on a cPanel deploy with no SMTP set up, as long as `APP_ENV=production`, mail
+goes out via `mail()` — not silently into the void. The old behaviour (no
+`SMTP_HOST` → log and drop) would have thrown away every verification and
+password-reset link, which is why the `mail` tier now exists.
+
+**`dev` on a production site is the dangerous state**: registration appears to
+succeed, but no verification or reset email ever reaches the user, and they
+cannot recover their password. Verify once after deploy by registering a throwaway
+account and confirming the message arrives, or by grepping the PHP error log for
+`[mail:mail] sent`. An SMTP error also falls through to `mail()` rather than
+dropping the message.
+
 ## Asymmetries that are intentional (do not "fix" them)
 
 These look like bugs but are faithful ports of the Node handlers. Each is
