@@ -113,7 +113,7 @@ export default function Profile() {
                   /* No photo to show. Never substitute a stock face here — that
                      misrepresents the member and puts a stranger's likeness on
                      their profile. An honest "private" state is correct. */
-                  <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-center px-6" role="img" aria-label={profile.photosLocked ? `${profile.displayName}'s photos are private` : `${profile.displayName} has not added a photo`}>
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-center px-6" role="img" aria-label={profile.photosLocked ? `Photos of ${profile.displayName} are private` : `${profile.displayName} has not added a photo`}>
                     <Lock className="w-7 h-7" style={{ color: 'var(--color-ink-tertiary)' }} aria-hidden="true" />
                     <p className="text-sm font-medium" style={{ color: 'var(--color-ink-secondary)' }}>
                       {profile.photosLocked ? 'Photos are private' : 'No photo yet'}

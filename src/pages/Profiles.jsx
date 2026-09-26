@@ -67,7 +67,8 @@ export default function Profiles() {
     religiosity: clean(filters.religiosity),
     education: clean(filters.education),
     marja: clean(filters.marja),
-    photo: clean(filters.photo),
+    // The API param is `photoAccess`; the UI state key is `photo`.
+    photoAccess: clean(filters.photo),
     verifiedOnly: filters.verifiedOnly,
     search: clean(filters.search),
   }), [filters]);
@@ -75,14 +76,10 @@ export default function Profiles() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setError(null);
-    const qs = new URLSearchParams();
-    const p = JSON.parse(serverFilterKey);
-    for (const [k, v] of Object.entries(p)) {
-      if (v === undefined || v === false) continue;
-      qs.set(k === 'photo' ? 'photoAccess' : k, String(v));
-    }
-    const query = qs.toString();
-    api.getProfiles(query ? `?${query}` : '')
+    // Pass the params as an OBJECT. getProfiles() builds the query string itself
+    // via Object.entries(); handing it a pre-built '?marja=Sistani' string made
+    // it iterate the characters, sending ?0=%3F&1=m&2=a... and filtering nothing.
+    api.getProfiles(JSON.parse(serverFilterKey))
       .then(data => { if (!cancelled) { setProfiles(data); setLoading(false); } })
       .catch(() => { if (!cancelled) { setError("We couldn't load profiles right now. Check your connection and try again."); setLoading(false); } });
     return () => { cancelled = true; };

@@ -13,7 +13,11 @@ function excerptText(value, maxLength = 90) {
 export default function ProfileCard({ profile, className = '' }) {
   const [saved, setSaved] = useState(false);
   const [interested, setInterested] = useState(false);
-  const photoLocked = profile.photoAccess && profile.photoAccess !== 'public';
+  // The server sends `photosVisibility` / `photosLocked`. The old `photoAccess`
+  // field was never returned, so this always evaluated false and the "blurred"
+  // state could never appear.
+  const photoLocked = profile.photosLocked === true;
+  const hasPhoto = Boolean(profile.photo) && !photoLocked;
   const about = excerptText(profile.about);
 
   return (
@@ -25,18 +29,29 @@ export default function ProfileCard({ profile, className = '' }) {
       <Link to={'/profiles/' + profile.id} className="block flex-1">
         {/* Photo */}
         <div className="relative aspect-[4/4.6] overflow-hidden" style={{ background: 'var(--color-surface)' }}>
-          <img
-            className={'w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.06] ' + (photoLocked ? 'blur-xl scale-110' : '')}
-            src={profile.photo || 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=700&q=70'}
-            alt={profile.displayName}
-            loading="lazy"
-            decoding="async"
-            onError={e => { e.currentTarget.style.opacity = '0'; }}
-            style={{ objectPosition: 'center top', position: 'relative', zIndex: 1 }}
-          />
+          {/* Only ever render a real photo. The old `|| stock-unsplash-url`
+              fallback put the same stranger's face on every card and
+              misrepresented every member shown. */}
+          {hasPhoto && (
+            <img
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+              src={profile.photo}
+              alt={profile.displayName}
+              loading="lazy"
+              decoding="async"
+              onError={e => { e.currentTarget.style.display = 'none'; }}
+              style={{ objectPosition: 'center top', position: 'relative', zIndex: 1 }}
+            />
+          )}
           {/* Elegant fallback monogram */}
           <div
-            aria-hidden="true"
+            aria-hidden={hasPhoto || undefined}
+            role={hasPhoto ? undefined : 'img'}
+            aria-label={
+              photoLocked
+                ? `Photos of ${profile.displayName} are private`
+                : `${profile.displayName} has not added a photo`
+            }
             className="absolute inset-0 flex items-center justify-center text-4xl font-bold select-none"
             style={{
               background: 'linear-gradient(160deg, #134e39 0%, #0c1220 70%)',

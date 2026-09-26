@@ -442,6 +442,56 @@ const run = async () => {
     // reject, which 404s once the row is no longer pending.
     check('dismiss is idempotent → 200 again', reDis.status === 200 && reDis.data?.ok === true, `${reDis.status}`);
   }
+
+  // ── 26. Filter parameters (added after the browse filters were found dead)
+  {
+    const f = await api('POST', '/api/auth/register', { body: { email: `filt-${stamp}@example.com`, password: PW, displayName: 'Filter Target' } });
+    const fTok = f.data?.token;
+    // Both key shapes must be accepted: the filter query uses `education`, the
+    // onboarding form uses `educationLevel`. The alias was missing, so the value
+    // was silently dropped on save.
+    const set = await api('PUT', '/api/profiles/me', {
+      token: fTok,
+      body: { visibility: 'public', photos_visibility: 'public', age: 30, gender: 'male',
+              sect: 'Ithna Ashari (Twelver)', religiosity: 'Very practicing',
+              education: "Master's degree", marja: 'Sistani', country: 'Karachi' },
+    });
+    check('onboarding fields accepted on save', set.status === 200, `${set.status}`);
+    const meF = await api('GET', '/api/profiles/me', { token: fTok });
+    check('religiosity persisted', meF.data?.religiosity === 'Very practicing', `${meF.data?.religiosity}`);
+    check('education persisted via alias', meF.data?.educationLevel === "Master's degree", `${meF.data?.educationLevel}`);
+    check('marja persisted', meF.data?.marja === 'Sistani', `${meF.data?.marja}`);
+
+    const bySect = await api('GET', `/api/profiles?sect=${encodeURIComponent('Ithna Ashari (Twelver)')}`);
+    check('filter ?sect matches', bySect.status === 200 && bySect.data.some(p => p.displayName === 'Filter Target'), `n=${bySect.data?.length}`);
+    const byMarja = await api('GET', '/api/profiles?marja=Sistani');
+    check('filter ?marja matches', byMarja.status === 200 && byMarja.data.some(p => p.displayName === 'Filter Target'), `n=${byMarja.data?.length}`);
+    const byEduc = await api('GET', `/api/profiles?education=${encodeURIComponent("Master's degree")}`);
+    check('filter ?education matches', byEduc.status === 200 && byEduc.data.some(p => p.displayName === 'Filter Target'), `n=${byEduc.data?.length}`);
+    const byRelig = await api('GET', `/api/profiles?religiosity=${encodeURIComponent('Very practicing')}`);
+    check('filter ?religiosity matches', byRelig.status === 200 && byRelig.data.some(p => p.displayName === 'Filter Target'), `n=${byRelig.data?.length}`);
+    const byCountry = await api('GET', '/api/profiles?country=Karachi');
+    check('filter ?country matches', byCountry.status === 200 && byCountry.data.some(p => p.displayName === 'Filter Target'), `n=${byCountry.data?.length}`);
+
+    // Placeholder sentinels must be ignored, not matched as literal strings.
+    const sentinel = await api('GET', '/api/profiles?sect=Any%20sect&religiosity=Any%20level&education=Any%20education');
+    check('placeholder sentinels do not filter anything out', sentinel.status === 200 && Array.isArray(sentinel.data) && sentinel.data.length > 0, `n=${sentinel.data?.length}`);
+    const nonExistent = await api('GET', '/api/profiles?sect=' + encodeURIComponent('Nonexistent Sect'));
+    check('a real filter value excludes non-matches', nonExistent.status === 200 && !nonExistent.data.some(p => p.displayName === 'Filter Target'), `n=${nonExistent.data?.length}`);
+  }
+
+  // ── 27. Photo privacy (the leak that showed a stranger's face)
+  {
+    const o = await api('POST', '/api/auth/register', { body: { email: `lockp-${stamp}@example.com`, password: PW, displayName: 'Locked Photos' } });
+    await api('PUT', '/api/profiles/me', { token: o.data?.token, body: { visibility: 'public', photos_visibility: 'private', age: 27, gender: 'female' } });
+    const other = await api('POST', '/api/auth/register', { body: { email: `lockv-${stamp}@example.com`, password: PW, displayName: 'Photo Viewer' } });
+    const seen = await api('GET', `/api/profiles/${o.data.user.uid}`, { token: other.data?.token });
+    check('locked photos → photo is null', seen.status === 200 && seen.data?.photo === null, `${JSON.stringify(seen.data?.photo)}`);
+    check('locked photos → photosLocked is true', seen.data?.photosLocked === true, `${seen.data?.photosLocked}`);
+    check('locked photos → photosVisibility reaches the client', seen.data?.photosVisibility === 'private', `${seen.data?.photosVisibility}`);
+    const own = await api('GET', '/api/profiles/me', { token: o.data?.token });
+    check('owner is not locked from their own photos', own.data?.photosLocked === false, `${own.data?.photosLocked}`);
+  }
 };
 
 run()
