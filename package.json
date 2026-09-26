@@ -4,12 +4,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
     "lint": "eslint . --ext .js,.jsx",
+    "db:dev": "node scripts/dev-db.mjs",
     "server": "node server/index.js",
-    "dev:full": "concurrently \"npm run server\" \"npm run dev\""
+    "php:api": "php -S 127.0.0.1:8888 -t php-api",
+    "php:api:dev": "node scripts/start-local-stack.mjs",
+    "smoke": "node scripts/smoke-api.mjs",
+    "e2e": "node scripts/e2e-features.mjs",
+    "e2e:ui": "node scripts/e2e-ui-claim.mjs",
+    "php:smoke": "node php-api/tests/smoke.mjs",
+    "dev:full": "node scripts/start-local-stack.mjs",
+    "start": "node scripts/start-local-stack.mjs"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -38,6 +46,7 @@
     "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.5.4",
+    "embedded-postgres": "^18.4.0-beta.17",
     "eslint": "^8.57.0",
     "eslint-plugin-react": "^7.34.0",
     "postcss": "^8.5.26",

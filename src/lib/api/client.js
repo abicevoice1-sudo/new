@@ -36,6 +36,12 @@ export const api = {
   // ── Matches ──
   getSuggestions: () => unwrap(matchesRepo.suggestions(), 'Could not load suggestions.'),
   expressInterest: (pid) => unwrap(matchesRepo.expressInterest(pid), 'Could not send interest.'),
+  startConversation: (pid) => unwrap(matchesRepo.startConversation(pid), 'Could not start the conversation.'),
+
+  // ── Verification (trust ladder) ──
+  submitVerification: (payload) => unwrap(matchesRepo.submitVerification(payload), 'Could not submit for verification.'),
+  myVerifications: () => unwrap(matchesRepo.myVerifications(), 'Could not load your submissions.'),
+  createWaliLink: () => unwrap(matchesRepo.createWaliLink(), 'Could not create the wali link.'),
 
   // ── Support ──
   getTickets: () => unwrap(ticketsRepo.all(), 'Could not load tickets.'),

@@ -1,8 +1,9 @@
-// ─── Auth service — hashed passwords, single session, admin flag ─────────────
-// Demo-grade (localStorage) but honest: no plaintext passwords, deterministic,
-// and API-identical to a future HTTP adapter. bcryptjs is sync — fine at this scale.
+// ─── Auth service — remote JWT backend when VITE_API_URL is set ─────────────
+// Local fallback keeps every flow working offline/demo: bcrypt-hashed passwords
+// in per-member storage, same session shape the backend returns.
 import bcrypt from 'bcryptjs';
 import { read, write, remove } from './storage';
+import { http, useRemote } from './transport';
 
 const USERS_KEY = 'users';
 const SESSION_KEY = 'session';
@@ -18,11 +19,20 @@ function toSession(user) {
     email: user.email,
     displayName: user.displayName,
     isAdmin: user.isAdmin === true,
+    // Local demo has no mail transport, so there is nothing to verify — mark
+    // verified to keep demo flows clean. The real backend decides this itself.
+    emailVerified: true,
   };
 }
 
 export const auth = {
   async register({ email, password, displayName }) {
+    if (useRemote) {
+      const data = await http.post('/api/auth/register', { email, password, displayName });
+      http.setToken(data.token);
+      write(SESSION_KEY, data.user);
+      return data.user;
+    }
     const cleanEmail = String(email ?? '').trim().toLowerCase();
     if (!cleanEmail || !password) throw new Error('Email and password are required');
     const users = read(USERS_KEY, []);
@@ -43,6 +53,12 @@ export const auth = {
   },
 
   async login({ email, password }) {
+    if (useRemote) {
+      const data = await http.post('/api/auth/login', { email, password });
+      http.setToken(data.token);
+      write(SESSION_KEY, data.user);
+      return data.user;
+    }
     const cleanEmail = String(email ?? '').trim().toLowerCase();
     const users = read(USERS_KEY, []);
     const user = users.find((u) => u.email === cleanEmail);
@@ -54,7 +70,23 @@ export const auth = {
     return session;
   },
 
+  // Password reset — remote only by design: the local demo has no mail
+  // transport, and pretending otherwise would fake a security flow.
+  async forgotPassword(email) {
+    if (!useRemote) return { ok: true, message: 'Demo mode: password reset needs the live platform.' };
+    return http.post('/api/auth/forgot', { email });
+  },
+  async resetPassword(token, password) {
+    if (!useRemote) throw new Error('Demo mode: password reset needs the live platform.');
+    return http.post('/api/auth/reset', { token, password });
+  },
+  async verifyEmail(token) {
+    if (!useRemote) return { ok: true, emailVerified: true };
+    return http.get(`/api/auth/verify-email?token=${encodeURIComponent(token)}`);
+  },
+
   logout() {
+    http.setToken(null);
     remove(SESSION_KEY);
   },
 

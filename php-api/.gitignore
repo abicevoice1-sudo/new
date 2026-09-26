@@ -1,0 +1,11 @@
+# php-api runtime + test artefacts — never commit these.
+.env
+/uploads/*
+!/uploads/.gitkeep
+/storage/
+/tests/mariadb/
+/tests/mariadb-data/
+/tests/mariadb.zip
+/tests/*.log
+/tests/*.txt
+/tests/*.json

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Moon, Search, Command, X, LayoutDashboard, Users, MessageCircle,
   BookOpen, LifeBuoy, Settings, LogOut, Home, Menu,
-  Shield, BarChart3, MessageSquare
+  Shield, BarChart3, MessageSquare, HandHeart, BadgeCheck, KeyRound
 } from 'lucide-react';
 import ThemeMenu from '../components/ThemeMenu';
 import AIAssistant from '../components/AIAssistant';
@@ -207,6 +207,7 @@ const NAV_ITEMS = [
   { path: '/messages', label: 'Messages', icon: MessageCircle, section: 'Connect' },
   { path: '/blog', label: 'Guidance', icon: BookOpen, section: 'Learn' },
   { path: '/community', label: 'Community', icon: Users, section: 'Learn' },
+  { path: '/drafts', label: 'Introductions', icon: HandHeart, section: 'Connect' },
   { path: '/support', label: 'Support', icon: LifeBuoy, section: 'Help' },
 ];
 
@@ -215,7 +216,9 @@ const ADMIN_NAV_ITEMS = [
   { path: '/admin/dashboard', label: 'Admin Panel', icon: Shield, section: 'Admin' },
   { path: '/admin/messages', label: 'Inbox', icon: MessageSquare, section: 'Admin' },
   { path: '/admin/support', label: 'Support Queue', icon: LifeBuoy, section: 'Admin' },
+  { path: '/admin/verifications', label: 'Verifications', icon: BadgeCheck, section: 'Admin' },
   { path: '/admin/guardians', label: 'Guardians', icon: Users, section: 'Admin' },
+  { path: '/admin/roles', label: 'Roles', icon: KeyRound, section: 'Admin' },
   { path: '/admin/analytics', label: 'Analytics', icon: BarChart3, section: 'Admin' },
 ];
 

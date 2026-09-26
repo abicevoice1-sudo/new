@@ -6,6 +6,11 @@ dist/
 build/
 .vite/
 
+# Local database data directories (Postgres dev cluster / MariaDB test datadir).
+# Never commit these — they are machine-local state, tens of MB of binary.
+.pgdata-dev/
+.pgdata/
+
 # Environment
 .env
 .env.local

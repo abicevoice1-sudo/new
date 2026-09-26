@@ -1,10 +1,13 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import Layout from '../layouts/LandingLayout';
 import { api } from '../lib/api/client';
 import { analytics } from '../lib/analytics';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, ShieldCheck, MapPin, Heart, MessageCircle, Bookmark, Lock, Users, Award, Sparkles, BadgeCheck, Flag } from 'lucide-react';
+import { useAuth } from '../lib/auth/AuthContext';
+import LoginGate from '../components/LoginGate';
+import { ArrowLeft, ShieldCheck, MapPin, Heart, MessageCircle, Bookmark, Lock, Users, Award, Sparkles, BadgeCheck } from 'lucide-react';
 import CompatibilityIndex from '../components/CompatibilityIndex';
+import { ReportFlag } from '../components/ReportFlag';
 import { computeCompatibility } from '../lib/compatibility';
 
 const GX = ['https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=700&q=75'];
@@ -17,6 +20,58 @@ export default function Profile() {
   const [activePhoto, setActivePhoto] = useState(0);
   const [interestSent, setInterestSent] = useState(false);
   const [shortlisted, setShortlisted] = useState(false);
+  const [interestBusy, setInterestBusy] = useState(false);
+  const [messageBusy, setMessageBusy] = useState(false);
+  const [actionNote, setActionNote] = useState(null);
+  const [showLoginGate, setShowLoginGate] = useState(false);
+  const { isLoggedIn } = useAuth();
+  const navigate = useNavigate();
+
+  // Interest + messaging: the server enforces the nikah-first rule — a
+  // conversation only opens once interest is mutual. Tapping Message without
+  // mutual interest sends the interest automatically, so one tap always moves
+  // the introduction forward and never dead-ends.
+  const handleInterest = async () => {
+    if (!isLoggedIn) { setShowLoginGate(true); return; }
+    if (interestSent || interestBusy) return;
+    setInterestBusy(true);
+    try {
+      await api.expressInterest(id);
+      setInterestSent(true);
+      analytics.track('interest_sent', { id });
+      setActionNote({ ok: true, text: 'Interest sent — messaging unlocks if they send one back.' });
+    } catch (e) {
+      setActionNote({ ok: false, text: e.message || 'Could not send interest.' });
+    } finally {
+      setInterestBusy(false);
+    }
+  };
+
+  const handleMessage = async () => {
+    if (!isLoggedIn) { setShowLoginGate(true); return; }
+    if (messageBusy) return;
+    setMessageBusy(true);
+    try {
+      const { id: cid } = await api.startConversation(id);
+      navigate(`/messages?c=${cid}`);
+    } catch (e) {
+      const msg = e.message || '';
+      if (/interest/i.test(msg)) {
+        try {
+          if (!interestSent) await api.expressInterest(id);
+          setInterestSent(true);
+          analytics.track('interest_sent', { id, via: 'message_gate' });
+          setActionNote({ ok: true, text: 'We sent your interest — messaging unlocks when they accept.' });
+        } catch {
+          setActionNote({ ok: false, text: msg });
+        }
+      } else {
+        setActionNote({ ok: false, text: msg || 'Could not start the conversation.' });
+      }
+    } finally {
+      setMessageBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (id) { api.getProfile(id).then(p => { setProfile({ ...p, gallery: [p.photo, ...GX] }); analytics.track('profile_viewed', { id }); }).catch(() => setError('Not found')).finally(() => setLoading(false)); }
@@ -52,16 +107,11 @@ export default function Profile() {
             <button onClick={() => setShortlisted(!shortlisted)} className="w-full button flex items-center justify-center gap-2 py-2.5 font-semibold text-sm" style={{ background: shortlisted ? 'var(--color-primary)' : 'var(--color-elevated)', color: shortlisted ? '#fff' : 'var(--color-ink)', border: '1px solid var(--color-border)' }}>
               <Bookmark className="w-4 h-4" style={{ fill: shortlisted ? '#fff' : 'none' }} /> {shortlisted ? 'Shortlisted' : 'Shortlist'}
             </button>
-            <a
-              href={`mailto:support@shiarishta.com?subject=${encodeURIComponent('Report profile: ' + (profile.displayName || id))}&body=${encodeURIComponent(`Reporting profile: ${profile.displayName || id}\nProfile URL: ${window.location.href}\n\nReason (please describe):\n\n`)}`}
-              onClick={() => analytics.track('profile_reported', { id, channel: 'mailto' })}
-              className="flex items-center justify-center gap-1.5 text-xs py-2 hover:underline"
-              style={{ color: 'var(--color-ink-faint)' }}
-            >
-              <Flag className="w-3.5 h-3.5" /> Report this profile
-            </a>
+            <div className="w-full rounded-xl p-3" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+              <ReportFlag targetType="profile" targetId={String(profile.id || id)} onDone={null} />
+            </div>
             <p className="text-[11px] text-center" style={{ color: 'var(--color-ink-faint)' }}>
-              Opens your email app addressed to our safety team. Reports are reviewed by a person.
+              Reports go to our safety team and are reviewed by a person.
             </p>
           </div>
           <div className="space-y-5">
@@ -77,14 +127,15 @@ export default function Profile() {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { setInterestSent(!interestSent); if (!interestSent) analytics.track('interest_sent', { id }); }} className="button primary px-4 py-2 text-sm font-semibold flex items-center gap-1.5">
+                  <button onClick={handleInterest} disabled={interestBusy} className="button primary px-4 py-2 text-sm font-semibold flex items-center gap-1.5">
                     <Heart className="w-4 h-4" style={{ fill: interestSent ? '#fff' : 'none' }} /> {interestSent ? 'Interest sent' : 'Send interest'}
                   </button>
-                  <button className="button px-4 py-2 text-sm font-semibold flex items-center gap-1.5" style={{ background: 'var(--color-elevated)', color: 'var(--color-ink)', border: '1px solid var(--color-border)' }}>
+                  <button onClick={handleMessage} disabled={messageBusy} className="button px-4 py-2 text-sm font-semibold flex items-center gap-1.5" style={{ background: 'var(--color-elevated)', color: 'var(--color-ink)', border: '1px solid var(--color-border)' }}>
                     <MessageCircle className="w-4 h-4" /> Message
                   </button>
                 </div>
               </div>
+              {actionNote && <p className="text-xs mt-3" style={{ color: actionNote.ok ? 'var(--color-primary)' : 'var(--color-danger, #c0392b)' }}>{actionNote.text}</p>}
             </div>
             {profile.bio && (
               <div className="p-5 rounded-2xl" style={{ background: 'var(--color-elevated)', border: '1px solid var(--color-border)' }}>
@@ -158,6 +209,7 @@ export default function Profile() {
           </div>
         </div>
       </main>
+      {showLoginGate && <LoginGate onClose={() => setShowLoginGate(false)} />}
     </Layout>
   );
 }

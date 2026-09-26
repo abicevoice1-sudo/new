@@ -1,10 +1,9 @@
 // ─── Community data — feed, communities and full-page post threads ──────────
-// Single source of truth for /community and /community/:slug/post/:postId.
-// Seeded from mock data, then member-created communities, posts and replies are
-// persisted through the per-member storage adapter: a post URL keeps working
-// after a reload, and two accounts sharing a browser never see each other's
-// posts. Nothing here talks to a server.
+// Remote mode (VITE_API_URL set): everything below is Postgres through the
+// Express API — shared across devices and members. Local mode keeps the seeded
+// feed + per-member browser storage so the product works offline/demo.
 import { read, write } from './api/storage';
+import { http, useRemote } from './api/transport';
 
 const COMMUNITIES_KEY = 'community_communities';
 const POSTS_KEY = 'community_posts';
@@ -105,34 +104,81 @@ const SEED_REPLIES = {
 
 const clone = value => JSON.parse(JSON.stringify(value));
 
-export function listCommunities() {
+export async function listCommunities() {
+  if (useRemote) {
+    const rooms = await http.get('/api/community');
+    const ids = new Set(rooms.map(r => r.id));
+    // The 'all' pseudo-room is a client concept; the API returns real rooms.
+    return [{ id: 'all', name: 'All', icon: '💰', members: rooms.reduce((n, r) => n + (r.members || 0), 0) },
+      ...rooms.filter(r => r.id !== 'all'),
+      ...(!ids.has('general') ? [{ id: 'general', name: 'General', icon: '💬', members: 0 }] : []),
+    ];
+  }
   const created = read(COMMUNITIES_KEY, []);
   return [...DEFAULT_COMMUNITIES, ...created];
 }
 
-export function getCommunity(id) {
-  return listCommunities().find(c => c.id === id) || null;
+export async function getCommunity(id) {
+  return (await listCommunities()).find(c => c.id === id) || null;
 }
 
-export function createCommunity({ name }) {
+export async function createCommunity({ name }) {
+  if (useRemote) return http.post('/api/community', { name });
   const id = String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (!id || getCommunity(id)) return null;
+  if (!id || await getCommunity(id)) return null;
   const community = { id, name: String(name).trim(), icon: '🌍', members: 1, created: true };
   write(COMMUNITIES_KEY, [...read(COMMUNITIES_KEY, []), community]);
   return community;
 }
 
 // Member posts first (newest first), then the seeded feed.
-export function listPosts() {
+export async function listPosts(sub = 'all') {
+  if (useRemote) {
+    const rows = await http.get(`/api/community/${encodeURIComponent(sub)}/posts`);
+    return rows.map(normalizePost);
+  }
   return [...read(POSTS_KEY, []), ...clone(DEFAULT_POSTS)];
 }
 
-export function getPost(id) {
+export async function getPost(id) {
+  if (useRemote) {
+    try {
+      const row = await http.get(`/api/community/post/${encodeURIComponent(id)}`);
+      return normalizePost(row, row.repliesList || []);
+    } catch {
+      return null;
+    }
+  }
   const wanted = String(id);
-  return listPosts().find(p => String(p.id) === wanted) || null;
+  return listPostsSync().find(p => String(p.id) === wanted) || null;
 }
 
-export function createPost({ sub, title, body = '', author = 'Anonymous', avatar = 'A' }) {
+function listPostsSync() {
+  return [...read(POSTS_KEY, []), ...clone(DEFAULT_POSTS)];
+}
+
+function normalizePost(row, repliesList) {
+  return {
+    id: String(row.id), sub: row.sub, title: row.title, body: row.body || '',
+    author: row.author || 'Member', avatar: String(row.author || 'M').trim().charAt(0).toUpperCase() || 'M',
+    replies: row.replies ?? (repliesList ? repliesList.length : 0),
+    likes: row.likes ?? 0,
+    time: row.created_at ? new Date(row.created_at).toLocaleString() : (row.time || ''),
+    tags: row.tags || [], pinned: row.pinned || false,
+    _repliesList: repliesList,
+  };
+}
+
+export async function createPost({ sub, title, body = '', author = 'Anonymous', avatar = 'A' }) {
+  if (useRemote) {
+    const target = sub && sub !== 'all' ? sub : 'general';
+    // The 'general' bucket may not exist yet on a fresh DB — create it once.
+    if (target === 'general') {
+      try { await http.post('/api/community', { name: 'general' }); } catch { /* exists */ }
+    }
+    const { id } = await http.post(`/api/community/${encodeURIComponent(target)}/posts`, { title, body, author });
+    return { id: String(id), sub: target, title: title.trim(), body: body.trim(), author, avatar };
+  }
   const post = {
     id: `m-${Date.now()}`,
     sub: sub && sub !== 'all' ? sub : 'general',
@@ -150,13 +196,24 @@ export function createPost({ sub, title, body = '', author = 'Anonymous', avatar
   return post;
 }
 
-export function listReplies(postId) {
+export async function listReplies(postId) {
+  if (useRemote) {
+    const post = await getPost(postId);
+    return (post?._repliesList || []).map(r => ({
+      id: String(r.id), author: r.author, body: r.body,
+      time: r.time ? new Date(r.time).toLocaleString() : '',
+    }));
+  }
   const seed = SEED_REPLIES[String(postId)] || [];
   const mine = read(COMMENTS_KEY, {})[String(postId)] || [];
   return [...seed, ...mine];
 }
 
-export function addReply(postId, { body, author = 'You' }) {
+export async function addReply(postId, { body, author = 'You' }) {
+  if (useRemote) {
+    const { id } = await http.post(`/api/community/post/${encodeURIComponent(postId)}/replies`, { body });
+    return { id: String(id), author, body: body.trim(), time: 'Just now', mine: true };
+  }
   const all = read(COMMENTS_KEY, {});
   const key = String(postId);
   const reply = { id: `mr-${Date.now()}`, author, body: body.trim(), time: 'Just now', mine: true };
@@ -172,7 +229,7 @@ export function postPath(post) {
 
 // Sections of a community that is not a real seeded room (member-created rooms,
 // or the "general" bucket used when posting from the All feed).
-export function isKnownCommunity(id) {
-  return !!getCommunity(id);
+export async function isKnownCommunity(id) {
+  return !!(await getCommunity(id));
 }
 

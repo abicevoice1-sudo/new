@@ -34,7 +34,11 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    host: true,
+    host: '0.0.0.0',
+    proxy: {
+      // PHP API is the default live backend for local development.
+      '/api': { target: 'http://127.0.0.1:8888', changeOrigin: true },
+    },
   },
   define: defineOptions,
   build: {

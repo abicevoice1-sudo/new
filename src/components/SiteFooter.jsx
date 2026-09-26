@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useRemote } from '../lib/api/transport';
 import {
   ShieldCheck, Lock, Users, Send, BadgeCheck, Globe,
 } from 'lucide-react';
@@ -87,7 +88,9 @@ export default function SiteFooter({ compact = false }) {
             </p>
             <div className="demo-banner">
               <BadgeCheck className="w-3.5 h-3.5" aria-hidden="true" />
-              Demo build: data is browser-local only, not server-verified.
+              {useRemote
+                ? 'Accounts and verification data are stored on our servers.'
+                : 'Demo build: data is browser-local only, not server-verified.'}
             </div>
           </div>
 

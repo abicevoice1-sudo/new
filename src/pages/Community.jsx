@@ -16,22 +16,48 @@ export default function Community() {
   const [anonymous, setAnonymous] = useState(true);
   const [newTitle, setNewTitle] = useState('');
   const [newBody, setNewBody] = useState('');
-  const [posts, setPosts] = useState(() => listPosts());
-  const [subreddits, setSubreddits] = useState(() => listCommunities());
+  const [posts, setPosts] = useState([]);
+  const [subreddits, setSubreddits] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [saving, setSaving] = useState(false);
   const [newSubName, setNewSubName] = useState('');
   const [newSubDesc, setNewSubDesc] = useState('');
 
   const { slug } = useParams();
   const navigate = useNavigate();
 
-  // Sync activeSub from URL slug on mount and when slug changes
-  useEffect(() => {
-    if (!slug) {
-      setActiveSub('all');
-    } else if (subreddits.some(s => s.id === slug)) {
-      setActiveSub(slug);
+  const refresh = async (sub = activeSub) => {
+    try {
+      const [rooms, feed] = await Promise.all([listCommunities(), listPosts(sub)]);
+      setSubreddits(rooms);
+      setPosts(feed);
+      setLoadError('');
+    } catch (e) {
+      setLoadError(e.message || 'Could not load the community.');
     }
-  }, [slug, subreddits]);
+  };
+
+  // Initial load + reload when switching rooms (remote mode fetches per room)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const target = slug || 'all';
+      try {
+        const [rooms, feed] = await Promise.all([listCommunities(), listPosts(target)]);
+        if (cancelled) return;
+        setSubreddits(rooms);
+        setPosts(feed);
+        setActiveSub(rooms.some(s => s.id === target) ? target : 'all');
+      } catch (e) {
+        if (!cancelled) setLoadError(e.message || 'Could not load the community.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [slug]);
 
   // Navigate to a community's URL slug
   const goToSub = (id) => {
@@ -53,7 +79,7 @@ export default function Community() {
     return result;
   }, [activeSub, posts, searchQuery]);
 
-    const filteredSubs = useMemo(() => {
+  const filteredSubs = useMemo(() => {
     if (!searchQuery.trim()) return subreddits;
     const q = searchQuery.toLowerCase();
     return subreddits.filter(s => s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q));
@@ -68,28 +94,44 @@ export default function Community() {
 
   const activeSubData = subreddits.find(s => s.id === activeSub);
   const handlePost = () => { if (!isLoggedIn) { setShowLoginGate(true); return; } setShowNewPost(true); };
-  const submitPost = () => {
-    if (!newTitle.trim()) return;
-    const author = anonymous ? 'Anonymous' : (user?.displayName || 'You');
-    const post = createPost({
-      sub: activeSub === 'all' ? 'general' : activeSub,
-      title: newTitle,
-      body: newBody,
-      author,
-      avatar: author.trim().charAt(0).toUpperCase() || 'Y',
-    });
-    setPosts(listPosts());
-    setNewTitle(''); setNewBody(''); setShowNewPost(false);
-    navigate(postPath(post));
+  const submitPost = async () => {
+    if (!newTitle.trim() || saving) return;
+    setSaving(true);
+    try {
+      const author = anonymous ? 'Anonymous' : (user?.displayName || 'You');
+      const post = await createPost({
+        sub: activeSub === 'all' ? 'general' : activeSub,
+        title: newTitle,
+        body: newBody,
+        author,
+        avatar: author.trim().charAt(0).toUpperCase() || 'Y',
+      });
+      await refresh(post.sub === activeSub || activeSub === 'all' ? activeSub : post.sub);
+      if (post.sub !== activeSub && activeSub !== 'all') goToSub(post.sub);
+      setNewTitle(''); setNewBody(''); setShowNewPost(false);
+      navigate(postPath(post));
+    } catch (e) {
+      setLoadError(e.message || 'Could not publish your post.');
+    } finally {
+      setSaving(false);
+    }
   };
-  const handleCreateSub = () => {
-    if (!newSubName.trim()) return;
-    const community = createCommunity({ name: newSubName });
-    if (!community) return;
-    setSubreddits(listCommunities());
-    setNewSubName(''); setNewSubDesc(''); setShowCreateSub(false);
-    setActiveSub(community.id);
-    navigate(`/community/${community.id}`);
+  const handleCreateSub = async () => {
+    if (!newSubName.trim() || saving) return;
+    setSaving(true);
+    try {
+      const community = await createCommunity({ name: newSubName });
+      if (!community) return;
+      const rooms = await listCommunities();
+      setSubreddits(rooms);
+      setNewSubName(''); setNewSubDesc(''); setShowCreateSub(false);
+      setActiveSub(community.id);
+      navigate(`/community/${community.id}`);
+    } catch (e) {
+      setLoadError(e.message || 'Could not create the community.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -99,6 +141,8 @@ export default function Community() {
           <div>
             <h1 style={{ fontSize: 'clamp(1.75rem,3vw,2.25rem)', fontWeight: 700, color: 'var(--color-ink)' }}>Community</h1>
             <p style={{ color: 'var(--color-ink-secondary)', marginTop: '0.25rem' }}>Connect, share, and grow — together in faith.</p>
+            {loadError && <p className="text-sm mt-2" style={{ color: 'var(--color-danger, #c0392b)' }}>{loadError}</p>}
+            {loading && <p className="text-sm mt-2" style={{ color: 'var(--color-ink-faint)' }}>Loading discussions…</p>}
           </div>
           <div className="flex gap-2">
             <button onClick={() => setShowCreateSub(true)} className="button secondary px-4 py-2.5 font-semibold text-sm flex items-center gap-2">
@@ -122,7 +166,7 @@ export default function Community() {
               style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
               aria-label="Search communities and posts"
             />
-                        {searchQuery && (
+            {searchQuery && (
               <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-ink-faint)' }}>
                 <X className="w-4 h-4" />
               </button>
@@ -157,7 +201,7 @@ export default function Community() {
                 <span style={{ fontSize: '1.5rem' }}>{activeSubData.icon}</span>
                 <div>
                   <p style={{ fontWeight: 600, color: 'var(--color-ink)', fontSize: '1rem' }}>/{activeSubData.name}</p>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-ink-secondary)' }}>{activeSubData.members || 0} members Â· {filtered.length} discussions</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-ink-secondary)' }}>{activeSubData.members || 0} members · {filtered.length} discussions</p>
                 </div>
               </div>
               <button onClick={handlePost} className="button primary px-4 py-2 text-sm font-semibold flex items-center gap-1.5">
@@ -178,7 +222,7 @@ export default function Community() {
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     {post.pinned && (<span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded" style={{ background: 'var(--color-primary)' }}>Pinned</span>)}
                     <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ color: 'var(--color-primary)', background: 'var(--color-primary-subtle)' }}>/{subreddits.find(s => s.id === post.sub)?.name || post.sub}</span>
-                    <span className="text-[10px]" style={{ color: 'var(--color-ink-faint)' }}>Â· {post.time}</span>
+                    <span className="text-[10px]" style={{ color: 'var(--color-ink-faint)' }}>· {post.time}</span>
                   </div>
                   <h3 style={{ fontWeight: 600, color: 'var(--color-ink)', marginBottom: '0.15rem', lineHeight: 1.4 }} className="group-hover:text-primary transition-colors">{post.title}</h3>
                   {post.body && (

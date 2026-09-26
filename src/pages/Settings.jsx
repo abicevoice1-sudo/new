@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { readIsDark, writeIsDark } from '../lib/theme';
 import Layout from '../layouts/MainLayout';
 import { useAuth } from '../lib/auth/AuthContext';
+import GetVerified from '../components/GetVerified';
 import {
-  Shield, Bell, User, Lock, Moon, Sun, Monitor,
+  Shield, Bell, User, Lock, Moon, Sun,
   AlertTriangle
 } from 'lucide-react';
 
@@ -35,10 +36,13 @@ export default function Settings() {
   });
 
   const [privacy, setPrivacy] = useState({
-    profileVisibility: 'discoverable', photoAccess: 'match',
+    profileVisibility: 'members', photoVisibility: 'members',
     showOnlineStatus: true, allowFamilyView: true, blockUnverified: false,
     incognito: false, watermarkPhotos: true
   });
+  const [privacySaved, setPrivacySaved] = useState('');
+  const [blocks, setBlocks] = useState([]);
+  const [blocking, setBlocking] = useState('');
 
   const [notifications, setNotifications] = useState({
     emailMessages: true, emailMatches: true, emailWeeklyDigest: true,
@@ -127,10 +131,10 @@ export default function Settings() {
             {activeTab === 'privacy' && (
               <div className="space-y-6">
                 <h2 className="text-xl font-semibold text-ink">Privacy & Safety</h2>
-                <p className="text-sm text-muted">Stored in this browser for {user?.email || 'this account'} on Save. These controls do not enforce server-side privacy until a backend lands.</p>
+                <p className="text-sm text-muted">Enforced by the server on Save — not just hidden in your browser. Photos set to Private are never sent to other members.</p>
                 {[
-                  { key: 'profileVisibility', label: 'Profile Visibility', type: 'select', options: [{ v: 'public', l: 'Public' }, { v: 'private', l: 'Private' }, { v: 'friends', l: 'Friends Only' }] },
-                  { key: 'photoVisibility', label: 'Photo Privacy', type: 'select', options: [{ v: 'public', l: 'Public' }, { v: 'interest', l: 'After Interest' }, { v: 'match', l: 'After Match' }, { v: 'private', l: 'Private' }] },
+                  { key: 'profileVisibility', label: 'Who can see my profile', type: 'select', options: [{ v: 'public', l: 'Public — anyone' }, { v: 'members', l: 'Members only' }, { v: 'private', l: 'Private — only me' }] },
+                  { key: 'photoVisibility', label: 'Who can see my photos', type: 'select', options: [{ v: 'public', l: 'Public — anyone' }, { v: 'members', l: 'Members only' }, { v: 'private', l: 'Private — only me' }] },
                   { key: 'showOnlineStatus', label: 'Show online status', type: 'toggle' },
                   { key: 'allowFamilyView', label: 'Allow family members to view profile', type: 'toggle' },
                   { key: 'blockUnverified', label: 'Block unverified members', type: 'toggle' }
@@ -148,6 +152,78 @@ export default function Settings() {
                     )}
                   </div>
                 ))}
+                <button
+                  onClick={async () => {
+                    setPrivacySaved('');
+                    try {
+                      const { api } = await import('../lib/api/client');
+                      await api.updateProfile(user?.uid || 'me', {
+                        visibility: privacy.profileVisibility,
+                        photos_visibility: privacy.photoVisibility,
+                      });
+                      setPrivacySaved('Privacy saved — enforced for every other member.');
+                    } catch (e) {
+                      setPrivacySaved(e.message || 'Could not save privacy.');
+                    }
+                  }}
+                  className="button primary px-5 py-2 font-semibold text-sm"
+                >
+                  Save privacy
+                </button>
+                {privacySaved && <p className="text-sm text-success font-medium">{privacySaved}</p>}
+                <div className="pt-2 border-t border-line/10 mt-6">
+                  <GetVerified />
+                </div>
+                 <div className="pt-2 border-t border-line/10 mt-6">
+                  <GetVerified />
+                </div>
+                <div className="pt-2">
+                  <h3 className="font-semibold text-ink mb-2">Blocked members</h3>
+                  <p className="text-sm text-muted mb-3">Blocking hides you from each other and disables messaging both ways — immediately, on every device.</p>
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      value={blocking}
+                      onChange={e => setBlocking(e.target.value)}
+                      placeholder="Paste a member ID to block"
+                      className="input flex-1"
+                      aria-label="Member ID to block"
+                    />
+                    <button
+                      onClick={async () => {
+                        if (!blocking.trim()) return;
+                        const { blockMember } = await import('../lib/api/safety');
+                        await blockMember(blocking.trim());
+                        const { listBlocks } = await import('../lib/api/safety');
+                        setBlocks(await listBlocks().catch(() => []));
+                        setBlocking('');
+                      }}
+                      className="button px-4 py-2 text-sm font-semibold"
+                      style={{ background: 'var(--color-elevated)', border: '1px solid var(--color-border)' }}
+                    >
+                      Block
+                    </button>
+                  </div>
+                  {blocks.length > 0 && (
+                    <ul className="space-y-2">
+                      {blocks.map(id => (
+                        <li key={id} className="flex items-center justify-between text-sm p-2 rounded-lg" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+                          <span style={{ color: 'var(--color-ink-secondary)' }}>{id}</span>
+                          <button
+                            onClick={async () => {
+                              const { unblockMember, listBlocks } = await import('../lib/api/safety');
+                              await unblockMember(id);
+                              setBlocks(await listBlocks().catch(() => []));
+                            }}
+                            className="text-xs hover:underline"
+                            style={{ color: 'var(--color-primary)' }}
+                          >
+                            Unblock
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
             )}
 

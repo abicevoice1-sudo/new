@@ -1,7 +1,10 @@
-// ─── Repository: typed CRUD over the storage adapter ─────────────────────────
-// Single place where entity shapes live. No artificial latency, no randomness.
-// Every method is async so swapping to HTTP later changes zero call sites.
+// ─── Repository: typed CRUD over the storage adapter — or the real API ──────
+// When VITE_API_URL is set, every call below goes to Postgres through the
+// Express backend (privacy tiers + blocks enforced server-side). Otherwise the
+// same shapes resolve from per-member local storage (demo/offline mode).
+// Every method is async so switching modes changes zero call sites.
 import { read, write } from './storage';
+import { http, useRemote } from './transport';
 import { SEED_PROFILES } from './mockData';
 
 const uid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -15,12 +18,22 @@ function allProfiles() {
 
 export const profilesRepo = {
   async all() {
+    if (useRemote) return http.get('/api/profiles');
     return allProfiles();
   },
   async getById(id) {
+    if (useRemote) return http.get(`/api/profiles/${encodeURIComponent(id)}`);
     return allProfiles().find((p) => p.id === id) ?? null;
   },
   async search(filters = {}) {
+    if (useRemote) {
+      const q = new URLSearchParams();
+      for (const [k, v] of Object.entries(filters)) {
+        if (v !== undefined && v !== null && v !== '') q.set(k, String(v));
+      }
+      const qs = q.toString();
+      return http.get(`/api/profiles${qs ? `?${qs}` : ''}`);
+    }
     let list = allProfiles();
     if (filters.minAge) list = list.filter((p) => p.age >= +filters.minAge);
     if (filters.maxAge) list = list.filter((p) => p.age <= +filters.maxAge);
@@ -36,6 +49,7 @@ export const profilesRepo = {
     return [...list].sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0));
   },
   async save(profile) {
+    if (useRemote) return http.put('/api/profiles/me', profile);
     const list = allProfiles();
     const idx = list.findIndex((p) => p.id === profile.id);
     const next = [...list];
@@ -48,6 +62,7 @@ export const profilesRepo = {
 
 export const messagesRepo = {
   async conversations() {
+    if (useRemote) return http.get('/api/messages');
     return read('conv', [
       {
         id: 'c1',
@@ -60,6 +75,7 @@ export const messagesRepo = {
     ]);
   },
   async thread(cid) {
+    if (useRemote) return http.get(`/api/messages/${encodeURIComponent(cid)}`);
     const all = read('msg', {});
     return (
       all[cid] ?? [
@@ -73,6 +89,7 @@ export const messagesRepo = {
     );
   },
   async send(cid, text) {
+    if (useRemote) return http.post(`/api/messages/${encodeURIComponent(cid)}`, { text });
     const all = read('msg', {});
     const msg = { id: uid(), senderId: 'me', text, timestamp: new Date().toISOString() };
     write('msg', { ...all, [cid]: [...(all[cid] ?? []), msg] });
@@ -87,11 +104,44 @@ export const matchesRepo = {
   },
   // Deterministic: idempotent, no Math.random() — mutual match resolved server-side later.
   async expressInterest(profileId) {
+    if (useRemote) return http.post(`/api/profiles/${encodeURIComponent(profileId)}/interest`, {});
     const existing = read('int', []);
     if (!existing.some((i) => i.profileId === profileId)) {
       write('int', [...existing, { profileId, timestamp: new Date().toISOString() }]);
     }
     return { success: true, matched: false };
+  },
+  // Interest-gated conversation start (server enforces mutual interest).
+  async startConversation(profileId) {
+    if (useRemote) return http.post('/api/messages', { userId: profileId });
+    const list = read('conv', []);
+    const existing = list.find((c) => c.participantId === profileId);
+    if (existing) return { id: existing.id };
+    const conv = {
+      id: `c-${Date.now().toString(36)}`,
+      participantId: profileId,
+      participantName: profileId,
+      lastMessage: '',
+      timestamp: new Date().toISOString(),
+      unread: false,
+    };
+    write('conv', [conv, ...list]);
+    return { id: conv.id };
+  },
+
+  async submitVerification({ kind, imageBase64 }) {
+    if (useRemote) return http.post('/api/verifications', { kind, imageBase64 });
+    throw new Error('Verification runs on the live platform — connect the backend.');
+  },
+
+  async myVerifications() {
+    if (useRemote) return http.get('/api/verifications/mine');
+    return [];
+  },
+
+  async createWaliLink() {
+    if (useRemote) return http.post('/api/wali/link');
+    throw new Error('Wali links work on the live platform — connect the backend.');
   },
 };
 

@@ -135,6 +135,9 @@ export default function Login() {
             </button>
           </form>
 
+          <p className="text-center text-sm">
+            <Link to="/auth/forgot" className="link-primary font-medium">Forgot password?</Link>
+          </p>
           <p className="text-center text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
             Don&apos;t have an account?{' '}
             <Link to="/auth/register" className="link-primary font-semibold">

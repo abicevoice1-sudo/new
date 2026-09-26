@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Layout from '../layouts/LandingLayout';
 import LoginGate from '../components/LoginGate';
 import { useAuth } from '../lib/auth/AuthContext';
 import { ArrowLeft, ChevronRight, Heart, MessageCircle } from 'lucide-react';
-import { addReply, getCommunity, getPost, listReplies } from '../lib/communityData';
+import { addReply, getPost, listReplies } from '../lib/communityData';
+import { ReportButton } from '../components/ReportButton';
 
 const initials = name => String(name || 'A').trim().charAt(0).toUpperCase();
 
@@ -13,27 +14,63 @@ const initials = name => String(name || 'A').trim().charAt(0).toUpperCase();
 export default function CommunityPost() {
   const { postId } = useParams();
   const { isLoggedIn, user } = useAuth();
-  const [post] = useState(() => getPost(postId));
-  const [replies, setReplies] = useState(() => listReplies(postId));
+  const [post, setPost] = useState(null);
+  const [replies, setReplies] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
   const [showLoginGate, setShowLoginGate] = useState(false);
 
   // The app sets history.scrollRestoration = 'manual', so opening a post has to
   // put the reader at the top itself.
   useEffect(() => { window.scrollTo(0, 0); }, [postId]);
 
-  const community = useMemo(() => getCommunity(post?.sub), [post]);
-  const communityHref = post && getCommunity(post.sub) ? `/community/${post.sub}` : '/community';
-  const communityLabel = community?.name || post?.sub;
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const [p, r] = await Promise.all([getPost(postId), listReplies(postId)]);
+        if (cancelled) return;
+        setPost(p);
+        setReplies(r);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [postId]);
 
-  const submitReply = (e) => {
+  const communityHref = post && post.sub ? `/community/${post.sub}` : '/community';
+  const communityLabel = post?.sub || 'all';
+
+  const submitReply = async (e) => {
     e.preventDefault();
     if (!isLoggedIn) { setShowLoginGate(true); return; }
-    if (!draft.trim()) return;
-    addReply(postId, { body: draft, author: user?.displayName || 'You' });
-    setReplies(listReplies(postId));
-    setDraft('');
+    if (!draft.trim() || saving) return;
+    setSaving(true);
+    try {
+      await addReply(postId, { body: draft, author: user?.displayName || 'You' });
+      setReplies(await listReplies(postId));
+      const updated = await getPost(postId);
+      if (updated) setPost(updated);
+      setDraft('');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <Layout>
+        <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
+          <div className="rounded-2xl p-8 text-center" style={{ background: 'var(--color-elevated)', border: '1px solid var(--color-border)' }}>
+            <p style={{ color: 'var(--color-ink-secondary)' }}>Loading discussion…</p>
+          </div>
+        </main>
+      </Layout>
+    );
+  }
 
   if (!post) {
     return (
@@ -97,6 +134,7 @@ export default function CommunityPost() {
           <div className="flex items-center gap-4 pt-3 border-t text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-ink-secondary)' }}>
             <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" /> {post.replies} replies</span>
             <span className="flex items-center gap-1"><Heart className="w-4 h-4" /> {post.likes} likes</span>
+            <ReportButton targetType="post" targetId={String(post.id)} />
             <Link to={communityHref} className="flex items-center gap-1 ml-auto hover:underline" style={{ color: 'var(--color-primary)' }}>
               <ArrowLeft className="w-3.5 h-3.5" /> Back to /{communityLabel}
             </Link>
@@ -151,6 +189,9 @@ export default function CommunityPost() {
                   <span className="text-[11px]" style={{ color: 'var(--color-ink-faint)' }}>· {reply.time}</span>
                 </div>
                 <p style={{ color: 'var(--color-ink-secondary)', fontSize: '0.875rem', lineHeight: 1.7 }}>{reply.body}</p>
+                <div className="mt-2">
+                  <ReportButton targetType="reply" targetId={String(reply.id)} />
+                </div>
               </div>
             ))}
 

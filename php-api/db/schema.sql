@@ -1,0 +1,192 @@
+-- Shiarishta PHP API â€” MariaDB schema (utf8mb4). Idempotent: safe to re-run.
+-- Port of server/schema.sql: UUID -> CHAR(36) app-generated, CITEXT -> TEXT with
+-- lowercased values + unique index, TIMESTAMPTZ -> DATETIME (UTC session set by
+-- db.php), gen_random_uuid() -> uuid() in PHP.
+
+SET NAMES utf8mb4;
+
+CREATE TABLE IF NOT EXISTS users (
+  id                      CHAR(36)     NOT NULL PRIMARY KEY,
+  email                   VARCHAR(320) NOT NULL,
+  password_hash           TEXT         NOT NULL,
+  display_name            VARCHAR(255) NOT NULL,
+  is_admin                TINYINT(1)   NOT NULL DEFAULT 0,
+  role                    VARCHAR(16)  NOT NULL DEFAULT 'member',
+  email_verified          TINYINT(1)   NOT NULL DEFAULT 0,
+  email_verify_token      VARCHAR(64)  DEFAULT NULL,
+  email_verify_expires    DATETIME     DEFAULT NULL,
+  password_reset_token    VARCHAR(64)  DEFAULT NULL,
+  password_reset_expires  DATETIME     DEFAULT NULL,
+  created_at              DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_users_email (email),
+  KEY idx_users_role (role)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS profiles (
+  user_id            CHAR(36)     NOT NULL PRIMARY KEY,
+  display_name       VARCHAR(255) NOT NULL,
+  age                INT          DEFAULT NULL,
+  gender             VARCHAR(8)   DEFAULT NULL,
+  city               VARCHAR(120) DEFAULT NULL,
+  country            VARCHAR(120) DEFAULT NULL,
+  sect               VARCHAR(120) DEFAULT NULL,
+  profession         VARCHAR(160) DEFAULT NULL,
+  bio                TEXT         DEFAULT NULL,
+  expectations       TEXT         DEFAULT NULL,
+  about_family       TEXT         DEFAULT NULL,
+  visibility         VARCHAR(16)  NOT NULL DEFAULT 'members',
+  photos_visibility  VARCHAR(16)  NOT NULL DEFAULT 'members',
+  is_verified        TINYINT(1)   NOT NULL DEFAULT 0,
+  is_blocked         TINYINT(1)   NOT NULL DEFAULT 0,
+  introduced_by      CHAR(36)     DEFAULT NULL,
+  introduced_at      DATETIME     DEFAULT NULL,
+  created_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS interests (
+  from_user_id CHAR(36) NOT NULL,
+  to_user_id   CHAR(36) NOT NULL,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (from_user_id, to_user_id),
+  KEY idx_interests_to (to_user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS conversations (
+  id         CHAR(36) NOT NULL PRIMARY KEY,
+  user_a     CHAR(36) NOT NULL,
+  user_b     CHAR(36) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_conversation (user_a, user_b),
+  KEY idx_conv_user_a (user_a),
+  KEY idx_conv_user_b (user_b)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS messages (
+  id              CHAR(36) NOT NULL PRIMARY KEY,
+  conversation_id CHAR(36) NOT NULL,
+  sender_id       CHAR(36) NOT NULL,
+  body            TEXT     NOT NULL,
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_messages_conv (conversation_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS communities (
+  id         VARCHAR(32) NOT NULL PRIMARY KEY,
+  name       VARCHAR(80) NOT NULL,
+  icon       VARCHAR(16) NOT NULL DEFAULT '🌍',
+  created_by CHAR(36)    DEFAULT NULL,
+  created_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS posts (
+  id           CHAR(36)     NOT NULL PRIMARY KEY,
+  community_id VARCHAR(32)  NOT NULL,
+  author_id    CHAR(36)     DEFAULT NULL,
+  author_name  VARCHAR(80)  NOT NULL,
+  title        VARCHAR(300) NOT NULL,
+  body         TEXT         NOT NULL,
+  likes        INT          NOT NULL DEFAULT 0,
+  is_hidden    TINYINT(1)   NOT NULL DEFAULT 0,
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_posts_community (community_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS replies (
+  id          CHAR(36)    NOT NULL PRIMARY KEY,
+  post_id     CHAR(36)    NOT NULL,
+  author_id   CHAR(36)    DEFAULT NULL,
+  author_name VARCHAR(80) NOT NULL,
+  body        TEXT        NOT NULL,
+  is_hidden   TINYINT(1)  NOT NULL DEFAULT 0,
+  created_at  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_replies_post (post_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS reports (
+  id          CHAR(36)      NOT NULL PRIMARY KEY,
+  reporter_id CHAR(36)      NOT NULL,
+  target_type VARCHAR(16)   NOT NULL,
+  target_id   VARCHAR(64)   NOT NULL,
+  reason      VARCHAR(1000) NOT NULL,
+  status      VARCHAR(16)   NOT NULL DEFAULT 'open',
+  created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_reports_status (status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS blocks (
+  blocker_id CHAR(36) NOT NULL,
+  blocked_id CHAR(36) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (blocker_id, blocked_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS verifications (
+  id           CHAR(36)     NOT NULL PRIMARY KEY,
+  user_id      CHAR(36)     NOT NULL,
+  kind         VARCHAR(32)  NOT NULL,
+  storage_path VARCHAR(512) NOT NULL,
+  status       VARCHAR(16)  NOT NULL DEFAULT 'pending',
+  review_note  TEXT         DEFAULT NULL,
+  reviewed_by  CHAR(36)     DEFAULT NULL,
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  reviewed_at  DATETIME     DEFAULT NULL,
+  KEY idx_verifications_status (status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS wali_links (
+  token      VARCHAR(64) NOT NULL PRIMARY KEY,
+  user_id    CHAR(36)    NOT NULL,
+  revoked    TINYINT(1)  NOT NULL DEFAULT 0,
+  created_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Introductions: verified matchmakers + guardians create a PRIVATE draft,
+-- share a one-time claim link, and the subject claims it â€” a draft is NEVER a
+-- profile row until she claims it.
+CREATE TABLE IF NOT EXISTS profile_drafts (
+  id                  CHAR(36)     NOT NULL PRIMARY KEY,
+  created_by          CHAR(36)     NOT NULL,
+  creator_role        VARCHAR(16)  NOT NULL,
+  claim_token         VARCHAR(64)  NOT NULL,
+  claim_token_expires DATETIME     NOT NULL,
+  short_code          CHAR(6)      NOT NULL,
+  gender              VARCHAR(8)   NOT NULL,
+  relationship        VARCHAR(80)  DEFAULT NULL,
+  display_name        VARCHAR(255) NOT NULL,
+  age                 INT          DEFAULT NULL,
+  city                VARCHAR(120) DEFAULT NULL,
+  country             VARCHAR(120) DEFAULT NULL,
+  sect                VARCHAR(120) DEFAULT NULL,
+  profession          VARCHAR(160) DEFAULT NULL,
+  bio                 TEXT         DEFAULT NULL,
+  expectations        TEXT         DEFAULT NULL,
+  about_family        TEXT         DEFAULT NULL,
+  contact_email       VARCHAR(320) NOT NULL,
+  contact_phone       VARCHAR(40)  DEFAULT NULL,
+  consent_attested    TINYINT(1)   NOT NULL DEFAULT 0,
+  consent_attested_at DATETIME     DEFAULT NULL,
+  status              VARCHAR(16)  NOT NULL DEFAULT 'awaiting_claim',
+  claimed_by          CHAR(36)     DEFAULT NULL,
+  claimed_at          DATETIME     DEFAULT NULL,
+  declined_at         DATETIME     DEFAULT NULL,
+  scrubbed_at         DATETIME     DEFAULT NULL,
+  last_sent_at        DATETIME     DEFAULT NULL,
+  send_count          INT          NOT NULL DEFAULT 0,
+  created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_draft_claim_token (claim_token),
+  UNIQUE KEY uq_draft_short_code (short_code),
+  KEY idx_drafts_creator (created_by, status),
+  KEY idx_drafts_status (status, claim_token_expires)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Append-only audit of every introduction event. Reviewable by admins; never edited.
+CREATE TABLE IF NOT EXISTS draft_events (
+  id         BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  draft_id   CHAR(36)     NOT NULL,
+  actor_id   CHAR(36)     DEFAULT NULL,
+  event      VARCHAR(40)  NOT NULL,
+  detail     VARCHAR(512) DEFAULT NULL,
+  created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_draft_events_draft (draft_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

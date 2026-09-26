@@ -16,6 +16,12 @@ const Messages = lazy(() => import('./pages/Messages'));
 const Support = lazy(() => import('./pages/Support'));
 const Login = lazy(() => import('./pages/auth/Login'));
 const Register = lazy(() => import('./pages/auth/Register'));
+const VerifyEmail = lazy(() => import('./pages/auth/VerifyEmail'));
+const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'));
+const WaliView = lazy(() => import('./pages/WaliView'));
+const ClaimDraft = lazy(() => import('./pages/ClaimDraft'));
+const Drafts = lazy(() => import('./pages/Drafts'));
 const Agents = lazy(() => import('./pages/Agents'));
 // Phase-2 exemplar: onboarding rebuilt as a feature module (features/onboarding/).
 // Delete pages/Onboard.jsx once this is verified in all flows.
@@ -33,6 +39,8 @@ const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const AdminMessages = lazy(() => import('./pages/admin/AdminMessages'));
 const AdminSupport = lazy(() => import('./pages/admin/AdminSupport'));
+const AdminVerifications = lazy(() => import('./pages/admin/AdminVerifications'));
+const AdminRoles = lazy(() => import('./pages/admin/AdminRoles'));
 const AdminGuardians = lazy(() => import('./pages/admin/AdminGuardians'));
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -78,6 +86,11 @@ const router = createBrowserRouter([
   { path: '/guardians', element: <LazyRoute component={Guardians} /> },
   { path: '/auth/login', element: <LazyRoute component={Login} /> },
   { path: '/auth/register', element: <LazyRoute component={Register} /> },
+  { path: '/auth/forgot', element: <LazyRoute component={ForgotPassword} /> },
+  { path: '/auth/reset', element: <LazyRoute component={ResetPassword} /> },
+  { path: '/verify-email', element: <LazyRoute component={VerifyEmail} /> },
+  { path: '/wali/:token', element: <LazyRoute component={WaliView} /> },
+  { path: '/claim/:token', element: <LazyRoute component={ClaimDraft} /> },
   {
     element: <RequireAuth />,
     children: [
@@ -86,6 +99,7 @@ const router = createBrowserRouter([
       { path: '/onboard', element: <LazyRoute component={Onboard} /> },
       { path: '/profile', element: <LazyRoute component={Onboard} /> },
       { path: '/settings', element: <LazyRoute component={Settings} /> },
+      { path: '/drafts', element: <LazyRoute component={Drafts} /> },
     ],
   },
   {
@@ -99,6 +113,8 @@ const router = createBrowserRouter([
           { path: 'dashboard', element: <LazyRoute component={AdminDashboard} /> },
           { path: 'messages', element: <LazyRoute component={AdminMessages} /> },
           { path: 'support', element: <LazyRoute component={AdminSupport} /> },
+          { path: 'verifications', element: <LazyRoute component={AdminVerifications} /> },
+          { path: 'roles', element: <LazyRoute component={AdminRoles} /> },
           { path: 'guardians', element: <LazyRoute component={AdminGuardians} /> },
           { path: 'analytics', element: <LazyRoute component={AdminAnalytics} /> },
         ],

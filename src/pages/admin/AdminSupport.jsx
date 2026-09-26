@@ -1,129 +1,97 @@
 import Layout from '@/layouts/MainLayout';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useToast } from '@lib/useToast';
-
-const STATUS_LABELS = {
-  open: 'Open',
-  in_progress: 'In Progress',
-  closed: 'Closed',
-};
-
-const PRIORITY_LABELS = { high: 'High', medium: 'Medium', low: 'Low' };
-
-const DEMO_TICKETS = [
-  {
-    id: 1,
-    user: 'Fatima N. (fatima@example.com)',
-    subject: 'Photo Upload Issue',
-    status: 'open',
-    priority: 'medium',
-    createdAt: '2026-08-22',
-    lastUpdated: '2026-08-23',
-  },
-  {
-    id: 2,
-    user: 'Yusuf K. (yusuf@example.com)',
-    subject: 'Match Notifications Not Working',
-    status: 'in_progress',
-    priority: 'high',
-    createdAt: '2026-08-20',
-    lastUpdated: '2026-08-24',
-  },
-  {
-    id: 3,
-    user: 'Ali J. (ali@example.com)',
-    subject: 'Question About Verification Process',
-    status: 'closed',
-    priority: 'low',
-    createdAt: '2026-08-18',
-    lastUpdated: '2026-08-19',
-  },
-];
+import { http, useRemote } from '@lib/api/transport';
 
 export default function AdminSupport() {
-  const [tickets, setTickets] = useState(DEMO_TICKETS);
-  const [filter, setFilter] = useState('all');
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('open');
   const { addToast } = useToast();
 
-  const updateStatus = (ticketId, nextStatus) => {
-    setTickets((prev) =>
-      prev.map((t) => (t.id === ticketId ? { ...t, status: nextStatus, lastUpdated: new Date().toISOString().slice(0, 10) } : t)),
-    );
-    addToast(`Ticket #${ticketId} marked “${STATUS_LABELS[nextStatus]}”.`, 'success');
+  const load = async (status = filter) => {
+    setLoading(true);
+    try {
+      if (!useRemote) { setReports([]); return; }
+      setReports(await http.get(`/api/admin/reports?status=${encodeURIComponent(status)}`));
+    } catch (e) {
+      addToast(e.message || 'Could not load reports.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const filteredTickets = tickets.filter(
-    (ticket) => filter === 'all' || ticket.status === filter,
-  );
+  useEffect(() => { load(filter); }, [filter]);
+
+  const act = async (id, action) => {
+    try {
+      await http.post(`/api/admin/reports/${encodeURIComponent(id)}/${action}`, {});
+      addToast(action === 'action' ? `Report actioned — content hidden.` : `Report dismissed.`, 'success');
+      load();
+    } catch (e) {
+      addToast(e.message || 'Action failed.', 'error');
+    }
+  };
 
   return (
     <Layout>
       <main>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <h1>Admin Support Center</h1>
-          <span
-            className="verified-pill"
-            style={{ background: 'var(--color-primary-subtle)', color: 'var(--color-primary)' }}
-            title="Backed by local demo data until the admin API is connected"
-          >
-            Demo data
-          </span>
+          <h1>Safety reports</h1>
+          {!useRemote && (
+            <span
+              className="verified-pill"
+              style={{ background: 'var(--color-primary-subtle)', color: 'var(--color-primary)' }}
+              title="Connect the backend (VITE_API_URL) to review live member reports"
+            >
+              Backend required
+            </span>
+          )}
         </div>
-        <p>Review, triage, and resolve member support tickets and inquiries.</p>
+        <p>Member reports from profiles, posts, replies and messages. Actioning hides the content immediately.</p>
 
         <div className="settings-list" style={{ marginBottom: '24px' }}>
           <div className="toggle-row">
             <span>Filter by Status:</span>
-            <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter tickets by status">
-              <option value="all">All Tickets</option>
+            <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter reports by status">
               <option value="open">Open</option>
-              <option value="in_progress">In Progress</option>
-              <option value="closed">Closed</option>
+              <option value="actioned">Actioned</option>
+              <option value="dismissed">Dismissed</option>
             </select>
           </div>
         </div>
 
-        {filteredTickets.length === 0 ? (
+        {loading ? (
+          <div className="empty-state"><p>Loading reports…</p></div>
+        ) : !useRemote ? (
           <div className="empty-state">
-            <p>No tickets match the current filter.</p>
-            <p style={{ marginTop: '4px' }}>Try a different status or check back later.</p>
+            <p>No backend connected.</p>
+            <p style={{ marginTop: '4px' }}>Set VITE_API_URL to review live member reports here. Member-facing report buttons already work in demo mode.</p>
+          </div>
+        ) : reports.length === 0 ? (
+          <div className="empty-state">
+            <p>No {filter} reports.</p>
+            <p style={{ marginTop: '4px' }}>New member reports will appear here.</p>
           </div>
         ) : (
           <div className="settings-list">
-            {filteredTickets.map((ticket) => (
-              <div key={ticket.id} className="toggle-row">
+            {reports.map((r) => (
+              <div key={r.id} className="toggle-row" style={{ alignItems: 'flex-start' }}>
                 <div>
-                  <strong>{ticket.user}</strong><br />
-                  <small>{ticket.subject}</small>
+                  <strong>{r.target_type}: {String(r.target_id).slice(0, 24)}</strong><br />
+                  <small>by {r.reporter_email || r.reporter_id} · {new Date(r.created_at).toLocaleString()}</small>
+                  <p style={{ marginTop: '6px' }}>{r.reason}</p>
                 </div>
-                <div>
-                  <select
-                    value={ticket.status}
-                    onChange={(e) => updateStatus(ticket.id, e.target.value)}
-                    aria-label={`Status for ticket ${ticket.id} — ${ticket.subject}`}
-                  >
-                    {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="ticket-priority">{PRIORITY_LABELS[ticket.priority] ?? ticket.priority}</div>
-                <div className="ticket-dates">
-                  <small>Created: {ticket.createdAt}</small><br />
-                  <small>Updated: {ticket.lastUpdated}</small>
-                </div>
+                {filter === 'open' && (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => act(r.id, 'action')} className="button primary px-3 py-1.5 text-xs font-semibold">Hide + action</button>
+                    <button onClick={() => act(r.id, 'dismiss')} className="button px-3 py-1.5 text-xs font-semibold" style={{ background: 'var(--color-elevated)', border: '1px solid var(--color-border)' }}>Dismiss</button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
-
-        <div className="section" style={{ marginTop: '32px' }}>
-          <h2>Respond to a ticket</h2>
-          <p>
-            Select a ticket above to update its status. Replies and internal notes are sent to the
-            member's inbox and mirrored in their conversation thread once the support API is connected.
-          </p>
-        </div>
       </main>
     </Layout>
   );

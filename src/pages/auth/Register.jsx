@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { analytics } from '../../lib/analytics';
+import { useRemote } from '../../lib/api/transport';
 import { Eye, EyeOff, Mail, Lock, User, Sparkles, X } from 'lucide-react';
 
 export default function Register() {
@@ -68,7 +69,9 @@ export default function Register() {
             Create your <span className="text-gradient">account</span>
           </h1>
           <p className="mt-2 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
-            Demo build: accounts and sessions live in this browser only — not a production identity system.
+            {useRemote
+              ? 'Your account is stored securely on our servers. We never sell your data.'
+              : 'Demo build: accounts and sessions live in this browser only — not a production identity system.'}
           </p>
         </div>
 
