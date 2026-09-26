@@ -32,11 +32,25 @@ function profilesList(): void
     $sect = $_GET['sect'] ?? null;
     $search = $_GET['search'] ?? null;
     $verifiedOnly = ($_GET['verifiedOnly'] ?? 'false') === 'true';
-
-    if ($minAge !== null && $minAge !== '') { $where[] = 'p.age >= ?'; $params[] = (int)$minAge; }
-    if ($maxAge !== null && $maxAge !== '') { $where[] = 'p.age <= ?'; $params[] = (int)$maxAge; }
+    // Filters the browse UI exposes. These previously had no server-side
+    // implementation at all, so the client filtered on fields the response
+    // never contained and every one of them returned an empty list.
+    $religiosity = $_GET['religiosity'] ?? null;
+    $education   = $_GET['education'] ?? null;
+    $marja       = $_GET['marja'] ?? null;
+    $country     = $_GET['country'] ?? null;
+    $photoAccess = $_GET['photoAccess'] ?? null;   // public | members | private
+    $searchable  = static fn($v, $label) => ($v !== null && $v !== '' && $v !== "Any $label" && $v !== "Any $label.");
+    if (array_key_exists('minAge', $_GET) && $_GET['minAge'] !== '' && $searchable($minAge, 'age')) { $where[] = 'p.age >= ?'; $params[] = (int)$minAge; }
+    if (array_key_exists('maxAge', $_GET) && $_GET['maxAge'] !== '' && $searchable($maxAge, 'age')) { $where[] = 'p.age <= ?'; $params[] = (int)$maxAge; }
     if ($gender !== null && in_array($gender, ['male', 'female'], true)) { $where[] = 'p.gender = ?'; $params[] = $gender; }
-    if ($sect !== null && $sect !== '' && $sect !== 'Any sect') { $where[] = 'p.sect = ?'; $params[] = $sect; }
+    if ($searchable($sect, 'sect')) { $where[] = 'p.sect = ?'; $params[] = $sect; }
+    if ($searchable($religiosity, 'level')) { $where[] = 'p.religiosity = ?'; $params[] = $religiosity; }
+    if ($searchable($education, 'education')) { $where[] = 'p.education_level = ?'; $params[] = $education; }
+    if ($searchable($marja, 'marja')) { $where[] = 'p.marja = ?'; $params[] = $marja; }
+    if ($searchable($country, 'country')) { $where[] = 'p.country = ?'; $params[] = $country; }
+    if ($searchable($photoAccess, 'photo')) { $where[] = 'p.photos_visibility = ?'; $params[] = $photoAccess; }
+    $verifiedOnly = ($_GET['verifiedOnly'] ?? 'false') === 'true';
     if ($verifiedOnly) { $where[] = 'p.is_verified = 1'; }
     if ($search !== null && trim((string)$search) !== '') {
         // utf8mb4_unicode_ci LIKE is case-insensitive — parity with ILIKE.
@@ -119,7 +133,35 @@ function profileUpdate(): void
 
     $cols = ['display_name', 'displayName', 'age', 'gender', 'city', 'country',
         'sect', 'profession', 'bio', 'expectations', 'aboutFamily',
-        'visibility', 'photos_visibility', 'photosVisibility'];
+        'visibility', 'photos_visibility', 'photosVisibility',
+        // Fields onboarding collects. These columns were added by
+        // migrateAddProfileColumns(); without this mapping the answers were
+        // accepted by the form and silently thrown away on save.
+        'religiosity', 'educationLevel', 'marja', 'prayer', 'modesty', 'diet',
+        'languages', 'ethnicity', 'incomeRange', 'maritalStatus', 'children',
+        'childrenPlans', 'relocation', 'familyInvolvement', 'heightCm', 'timeline',
+        'photoUrl'];
+
+    // Accept the same key under both shapes. The browse filter sends `education`
+    // (that is the query-param name) while the onboarding form sends
+    // `educationLevel`; without this alias the value was silently dropped.
+    $aliases = [
+        'education'          => 'educationLevel',
+        'education_level'    => 'educationLevel',
+        'religiosity_level'  => 'religiosity',
+        'marja_affiliation'  => 'marja',
+        'family_involvement' => 'familyInvolvement',
+        'children_plans'     => 'childrenPlans',
+        'marital_status'     => 'maritalStatus',
+        'income_range'       => 'incomeRange',
+        'height_cm'          => 'heightCm',
+        'photo_url'          => 'photoUrl',
+    ];
+    foreach ($aliases as $from => $to) {
+        if (!array_key_exists($to, $b) && array_key_exists($from, $b)) {
+            $b[$to] = $b[$from];
+        }
+    }
     $sets = [];
     $values = [];
     foreach ($cols as $key) {
@@ -128,9 +170,18 @@ function profileUpdate(): void
             'displayName' => 'display_name',
             'aboutFamily' => 'about_family',
             'photosVisibility' => 'photos_visibility',
+            'educationLevel' => 'education_level',
+            'incomeRange' => 'income_range',
+            'maritalStatus' => 'marital_status',
+            'childrenPlans' => 'children_plans',
+            'familyInvolvement' => 'family_involvement',
+            'heightCm' => 'height_cm',
+            'photoUrl' => 'photo_url',
             default => $key,
         };
-        $v = $key === 'age' ? $age : ($b[$key] === '' ? null : $b[$key]);
+        $v = in_array($key, ['age', 'heightCm'], true) && $b[$key] !== null && $b[$key] !== ''
+            ? (int)$b[$key]
+            : ($b[$key] === '' ? null : $b[$key]);
         if ($col === 'display_name' && ($v === null || trim((string)$v) === '')) continue;
         $sets[] = "{$col} = ?";
         $values[] = $v;

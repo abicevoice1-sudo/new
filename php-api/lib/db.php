@@ -110,7 +110,8 @@ function visibleProfile(array $row, ?array $viewer): ?array
     $isOwner = $viewer !== null && (string)$viewer['uid'] === $ownerId;
 
     if (($row['visibility'] ?? 'members') === 'public' || ($viewer !== null && isset($viewer['uid'])) || $isOwner) {
-        $photosLocked = ($row['photos_visibility'] ?? 'members') === 'private' && !$isOwner;
+        $photosVisibility = (string)($row['photos_visibility'] ?? 'members');
+        $photosLocked = $photosVisibility === 'private' && !$isOwner;
         return [
             'id' => $ownerId,
             'displayName' => $row['display_name'] ?? null,
@@ -125,6 +126,33 @@ function visibleProfile(array $row, ?array $viewer): ?array
             'aboutFamily' => $row['about_family'] ?? null,
             'is_verified' => (bool)($row['is_verified'] ?? false),
             'visibility' => $row['visibility'] ?? 'members',
+            // ── Filterable fields ────────────────────────────────────────────
+            // The browse filters (sect, religiosity, education, Marja') match on
+            // these. They were absent from the response entirely, so selecting
+            // any of those filters silently returned zero results.
+            'religiosity' => $row['religiosity'] ?? null,
+            'educationLevel' => $row['education_level'] ?? null,
+            'marja' => $row['marja'] ?? null,
+            'prayer' => $row['prayer'] ?? null,
+            'modesty' => $row['modesty'] ?? null,
+            'diet' => $row['diet'] ?? null,
+            'languages' => $row['languages'] ?? null,
+            'ethnicity' => $row['ethnicity'] ?? null,
+            'incomeRange' => $row['income_range'] ?? null,
+            'maritalStatus' => $row['marital_status'] ?? null,
+            'children' => $row['children'] ?? null,
+            'childrenPlans' => $row['children_plans'] ?? null,
+            'relocation' => $row['relocation'] ?? null,
+            'familyInvolvement' => $row['family_involvement'] ?? null,
+            'heightCm' => isset($row['height_cm']) && $row['height_cm'] !== null ? (int)$row['height_cm'] : null,
+            'timeline' => $row['timeline'] ?? null,
+            // MUST be sent: the client renders its "photos are private" state
+            // from this. Omitting it left the lock overlay permanently hidden,
+            // so a member who hid their photos still looked fully visible.
+            'photosVisibility' => $photosVisibility,
+            'photosLocked' => $photosLocked,
+            // null whenever photos are locked — the client must never substitute
+            // a placeholder image here, or it shows a stranger's face as theirs.
             'photo' => $photosLocked ? null : ($row['photo_url'] ?? null),
         ];
     }
@@ -137,6 +165,8 @@ function visibleProfile(array $row, ?array $viewer): ?array
         'expectations' => $row['expectations'] ?? null,
         'aboutFamily' => $row['about_family'] ?? null,
         'visibility' => $row['visibility'] ?? 'members',
+        'photosVisibility' => (string)($row['photos_visibility'] ?? 'members'),
+        'photosLocked' => !$isOwner,
         'locked' => true,
     ];
 }

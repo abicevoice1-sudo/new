@@ -12,6 +12,11 @@ function migrateSchema(): void
     $sql = file_get_contents($file);
     if ($sql === false || trim($sql) === '') return;
 
+    // Additive columns run FIRST and unconditionally. They used to sit at the end
+    // of this function, which the early-return probe below skipped on any database
+    // that already had its tables — so those columns never got created.
+    migrateAddProfileColumns();
+
     // Cheap "already migrated" probe. Must check a LATE table too: probing only
     // users.* would skip migration forever after a partial run (a lesson learned
     // the hard way — conversations/messages/profile_drafts never got created).
@@ -53,5 +58,51 @@ function migrateSchema(): void
         error_log($errors === 0 ? '[api] schema migrated' : "[api] schema migrated with {$errors} tolerated statement error(s)");
     } catch (Throwable $e) {
         error_log('[api] migration issue: ' . $e->getMessage());
+    }
+}
+
+// Additive column migrations. CREATE TABLE IF NOT EXISTS cannot add a column to
+// a table that already exists, and the early-return probe above means a database
+// created before a column was introduced never picks it up. That is exactly how
+// religiosity/education/marja' ended up collected in onboarding and then silently
+// discarded on save: the columns were never there. Every statement is idempotent.
+function migrateAddProfileColumns(): void
+{
+    $additions = [
+        'religiosity'      => "VARCHAR(60) DEFAULT NULL",
+        'education_level'  => "VARCHAR(80) DEFAULT NULL",
+        'marja'            => "VARCHAR(80) DEFAULT NULL",
+        'prayer'           => "VARCHAR(80) DEFAULT NULL",
+        'modesty'          => "VARCHAR(80) DEFAULT NULL",
+        'diet'             => "VARCHAR(80) DEFAULT NULL",
+        'languages'        => "VARCHAR(255) DEFAULT NULL",
+        'ethnicity'        => "VARCHAR(120) DEFAULT NULL",
+        'income_range'     => "VARCHAR(80) DEFAULT NULL",
+        'marital_status'   => "VARCHAR(60) DEFAULT NULL",
+        'children'         => "VARCHAR(60) DEFAULT NULL",
+        'children_plans'   => "VARCHAR(80) DEFAULT NULL",
+        'relocation'       => "VARCHAR(80) DEFAULT NULL",
+        'family_involvement' => "VARCHAR(80) DEFAULT NULL",
+        'height_cm'        => "INT DEFAULT NULL",
+        'timeline'         => "VARCHAR(80) DEFAULT NULL",
+        'photo_url'        => "VARCHAR(500) DEFAULT NULL",
+    ];
+
+    try {
+        $existing = [];
+        foreach (db()->query('SHOW COLUMNS FROM profiles')->fetchAll() as $c) {
+            $existing[strtolower((string)$c['Field'])] = true;
+        }
+        foreach ($additions as $col => $def) {
+            if (isset($existing[$col])) continue;
+            try {
+                db()->exec("ALTER TABLE profiles ADD COLUMN `$col` $def");
+                error_log("[api] migration: added profiles.$col");
+            } catch (Throwable $e) {
+                error_log("[api] migration: could not add $col — " . substr($e->getMessage(), 0, 120));
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('[api] migration (columns) issue: ' . $e->getMessage());
     }
 }

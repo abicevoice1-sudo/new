@@ -12,6 +12,9 @@ import {
 const SECT_FILTERS = ['Any sect', 'Ithna Ashari (Twelver)', 'Ismaili', 'Bohra', 'Zaydi'];
 const RELIGIOSITY_FILTERS = ['Any level', 'Very practicing', 'Practicing', 'Moderately practicing', 'Reconnecting'];
 const EDUCATION_FILTERS = ['Any education', "Bachelor's degree", "Master's degree", 'Doctorate', 'Some college'];
+// Marja' is the single most requested Shia filter — it decides which rulings
+// govern a shared household, so it belongs next to sect, not buried.
+const MARJA_FILTERS = ['Any marja', 'Sistani', 'Khamenei', 'Khoei', 'Tehrani', 'Shirazi', 'Other'];
 const SORTS = [
   { value: 'match', label: 'Best match' },
   { value: 'newest', label: 'Newest members' },
@@ -22,8 +25,13 @@ const SORTS = [
 const DEFAULT_FILTERS = {
   search: '', gender: '', minAge: '', maxAge: '', country: '',
   sect: 'Any sect', religiosity: 'Any level', education: 'Any education',
-  photo: 'any', verifiedOnly: false, sort: 'match'
+  marja: 'Any marja', photo: 'any', verifiedOnly: false, sort: 'match'
 };
+
+// Placeholder sentinels must be stripped before hitting the API, otherwise the
+// server would filter for the literal string "Any sect" and return nothing.
+const sentinels = new Set(['Any sect', 'Any level', 'Any education', 'Any marja', 'any', '']);
+const clean = (v) => (v === undefined || sentinels.has(String(v)) ? undefined : String(v));
 
 export default function Profiles() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -47,32 +55,55 @@ export default function Profiles() {
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => load(), [load]);
+  // Re-fetch when a filter that the server owns changes. Previously every filter
+  // was applied client-side against fields the API never returned, so six of the
+  // seven silently produced an empty list.
+  const serverFilterKey = useMemo(() => JSON.stringify({
+    gender: clean(filters.gender),
+    minAge: clean(filters.minAge),
+    maxAge: clean(filters.maxAge),
+    country: clean(filters.country),
+    sect: clean(filters.sect),
+    religiosity: clean(filters.religiosity),
+    education: clean(filters.education),
+    marja: clean(filters.marja),
+    photo: clean(filters.photo),
+    verifiedOnly: filters.verifiedOnly,
+    search: clean(filters.search),
+  }), [filters]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true); setError(null);
+    const qs = new URLSearchParams();
+    const p = JSON.parse(serverFilterKey);
+    for (const [k, v] of Object.entries(p)) {
+      if (v === undefined || v === false) continue;
+      qs.set(k === 'photo' ? 'photoAccess' : k, String(v));
+    }
+    const query = qs.toString();
+    api.getProfiles(query ? `?${query}` : '')
+      .then(data => { if (!cancelled) { setProfiles(data); setLoading(false); } })
+      .catch(() => { if (!cancelled) { setError("We couldn't load profiles right now. Check your connection and try again."); setLoading(false); } });
+    return () => { cancelled = true; };
+  }, [serverFilterKey]);
+
   useEffect(() => { setVisibleCount(9); }, [filters]);
 
   const filtered = useMemo(() => {
-    const q = filters.search.trim().toLowerCase();
+    // Filtering is server-side now. Only the sort stays local, plus a guard that
+    // never lets a private row reach the grid even if the server were to change.
     let list = profiles.filter(p => {
-      if (p.isPrivate) return false;
-      if (q && ![p.displayName, p.profession, p.city, p.country].join(' ').toLowerCase().includes(q)) return false;
-      if (filters.gender && p.gender !== filters.gender) return false;
-      if (filters.minAge && p.age < +filters.minAge) return false;
-      if (filters.maxAge && p.age > +filters.maxAge) return false;
-      if (filters.country && p.country !== filters.country) return false;
-      if (filters.sect !== 'Any sect' && p.sect !== filters.sect) return false;
-      if (filters.religiosity !== 'Any level' && p.religiosity !== filters.religiosity) return false;
-      if (filters.education !== 'Any education' && p.educationLevel !== filters.education) return false;
-      if (filters.photo === 'public' && p.photoAccess !== 'public') return false;
-      if (filters.photo === 'protected' && p.photoAccess === 'public') return false;
-      if (filters.verifiedOnly && !p.is_verified) return false;
+      if (p.locked) return false;
+      if (p.visibility === 'private' && !p.isOwner) return false;
       return true;
     });
 
     switch (filters.sort) {
       case 'newest': list = [...list].reverse(); break;
-      case 'age-asc': list = [...list].sort((a, b) => a.age - b.age); break;
-      case 'age-desc': list = [...list].sort((a, b) => b.age - a.age); break;
-      default: list = [...list].sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+      case 'age-asc': list = [...list].sort((a, b) => (a.age ?? 99) - (b.age ?? 99)); break;
+      case 'age-desc': list = [...list].sort((a, b) => (b.age ?? 0) - (a.age ?? 0)); break;
+      default: list = [...list].sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0));
     }
     return list;
   }, [profiles, filters]);
@@ -175,6 +206,21 @@ export default function Profiles() {
                     <label className="block mb-1.5 text-xs font-medium" style={{ color: 'var(--color-ink-secondary)' }}>Education</label>
                     <select value={filters.education} onChange={e => setFilter('education', e.target.value)} className="input" style={{ background: 'var(--color-surface)' }}>
                       {EDUCATION_FILTERS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block mb-1.5 text-xs font-medium" style={{ color: 'var(--color-ink-secondary)' }}>Marja&apos;</label>
+                    <select value={filters.marja} onChange={e => setFilter('marja', e.target.value)} className="input" style={{ background: 'var(--color-surface)' }}>
+                      {MARJA_FILTERS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block mb-1.5 text-xs font-medium" style={{ color: 'var(--color-ink-secondary)' }}>Photo access</label>
+                    <select value={filters.photo} onChange={e => setFilter('photo', e.target.value)} className="input" style={{ background: 'var(--color-surface)' }}>
+                      <option value="any">Any</option>
+                      <option value="public">Photos public</option>
+                      <option value="members">Members tier</option>
+                      <option value="private">Photos private</option>
                     </select>
                   </div>
                   <div>

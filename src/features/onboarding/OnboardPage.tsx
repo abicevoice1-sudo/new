@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import Layout from '../../layouts/MainLayout';
 import { useAuth } from '../../lib/auth/AuthContext';
+import { api } from '../../lib/api/client';
 import { saveMyProfile } from '../../lib/storage';
 import { computeProfileCompleteness, ONBOARDING_STEPS } from '../../lib/onboardingData';
 import { STEP_COMPONENTS } from './steps/steps';
@@ -49,18 +50,30 @@ export default function OnboardPage() {
   if (!ActiveStep) return null; // unreachable — steps registry covers 1..7
 
   const publish = async () => {
-    // TODO(P2): swap for `api.updateProfile` once the HTTP adapter lands —
-    // this call site is already shaped for it (id, payload, await, redirect).
-    const profile = {
-      ...data,
-      age: Number.parseInt(data.age, 10),
-      uid: user?.uid ?? 'self',
-      completeness,
-      publishedAt: new Date().toISOString(),
-    };
+    // Persist to the server first. This used to be a local-storage write only
+    // (with a TODO to wire the HTTP adapter), which meant every answer the
+    // member gave across the 7 steps — religiosity, education, Marja', prayer,
+    // modesty, diet — was thrown away the moment they closed the tab, and the
+    // browse filters that match on those fields had nothing to match against.
+    const age = Number.parseInt(data.age, 10);
+    const payload = { ...data, age: Number.isNaN(age) ? null : age };
+    delete payload.uid;
+    delete payload.completeness;
+    delete payload.publishedAt;
+
+    let saved = true;
+    try {
+      await api.updateProfile('me', payload);
+    } catch (err) {
+      // Surface it: a silent local-only save is what hid this bug for so long.
+      saved = false;
+      console.error('[onboard] could not save profile to the server:', err);
+    }
+
+    const profile = { ...payload, completeness, publishedAt: new Date().toISOString() };
     saveMyProfile(profile);
     draft.reset();
-    navigate('/dashboard');
+    navigate(saved ? '/dashboard' : '/settings?saveFailed=1');
   };
 
   const stepProps = { data, errors, update: draft.update, toggleIn: draft.toggleIn };

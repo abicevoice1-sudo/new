@@ -10,8 +10,9 @@ import CompatibilityIndex from '../components/CompatibilityIndex';
 import { ReportFlag } from '../components/ReportFlag';
 import { computeCompatibility } from '../lib/compatibility';
 
-const GX = ['https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=700&q=75'];
-
+// No stock/placeholder photo is injected into the gallery. A member who hides
+// their photos gets an honest "photos are private" state, never someone else's
+// face standing in for theirs.
 export default function Profile() {
   const { id } = useParams();
   const [profile, setProfile] = useState(null);
@@ -74,7 +75,19 @@ export default function Profile() {
   };
 
   useEffect(() => {
-    if (id) { api.getProfile(id).then(p => { setProfile({ ...p, gallery: [p.photo, ...GX] }); analytics.track('profile_viewed', { id }); }).catch(() => setError('Not found')).finally(() => setLoading(false)); }
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    api.getProfile(id)
+      .then(p => {
+        // Only real photos. If the server sent none (locked or not yet set),
+        // the gallery is empty and we render an honest placeholder instead.
+        const gallery = [p.photo].filter(Boolean);
+        setProfile({ ...p, gallery });
+        analytics.track('profile_viewed', { id });
+      })
+      .catch(() => setError('Not found'))
+      .finally(() => { setLoading(false); setActivePhoto(0); });
   }, [id]);
 
   const compat = profile ? computeCompatibility(profile) : null;
@@ -94,9 +107,26 @@ export default function Profile() {
           <div className="space-y-4 lg:sticky lg:top-24 self-start">
             <div className="rounded-2xl overflow-hidden shadow-lg" style={{ background: 'var(--color-elevated)', border: '1px solid var(--color-border)' }}>
               <div className="aspect-[3/4] relative" style={{ background: 'var(--color-surface)' }}>
-                 <img src={profile.gallery[activePhoto]} alt={profile.displayName} className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} />
+                 {profile.gallery.length > 0 ? (
+                  <img src={profile.gallery[activePhoto]} alt={profile.displayName} className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} />
+                 ) : (
+                  /* No photo to show. Never substitute a stock face here — that
+                     misrepresents the member and puts a stranger's likeness on
+                     their profile. An honest "private" state is correct. */
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-center px-6" role="img" aria-label={profile.photosLocked ? `${profile.displayName}'s photos are private` : `${profile.displayName} has not added a photo`}>
+                    <Lock className="w-7 h-7" style={{ color: 'var(--color-ink-tertiary)' }} aria-hidden="true" />
+                    <p className="text-sm font-medium" style={{ color: 'var(--color-ink-secondary)' }}>
+                      {profile.photosLocked ? 'Photos are private' : 'No photo yet'}
+                    </p>
+                    {profile.photosLocked && (
+                      <p className="text-xs leading-relaxed" style={{ color: 'var(--color-ink-tertiary)' }}>
+                        This member keeps their photos private until they choose to share.
+                      </p>
+                    )}
+                  </div>
+                 )}
                 {verificationLabel && (<div className="float-card-badge-match"><ShieldCheck className="w-3 h-3" /> {verificationLabel}</div>)}
-                {profile.photosVisibility === 'private' && (<div className="float-card-lock"><div className="float-card-lock-inner"><Lock className="w-4 h-4" /> Private</div></div>)}
+                {profile.photosLocked && (<div className="float-card-lock"><div className="float-card-lock-inner"><Lock className="w-4 h-4" /> Private</div></div>)}
               </div>
               {profile.gallery.length > 1 && (
                 <div className="flex gap-2 p-3">

@@ -1,155 +1,143 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import Layout from '../layouts/LandingLayout';
-import { Heart, Quote, Star, MapPin, Calendar, CheckCircle, ArrowRight } from 'lucide-react';
+import {
+  Heart, ShieldCheck, Lock, Users, CheckCircle, ArrowRight, UserCheck, Eye,
+} from 'lucide-react';
 
-const STORIES = [
-  {
-    id: 1,
-    names: 'Zainab & Ahmed',
-    location: 'Chicago, IL',
-    date: 'Married June 2025',
-    avatar1: 'Z',
-    avatar2: 'A',
-    quote: 'We connected over shared values and a love for community service. The wali workflow made our families feel involved from the start. Within 3 months of joining, we knew. Alhamdulillah, we just celebrated our first anniversary.',
-    highlight: 'Matched in 3 weeks',
-    rating: 5,
-  },
-  {
-    id: 2,
-    names: 'Maryam & Hassan',
-    location: 'London, UK',
-    date: 'Married September 2025',
-    avatar1: 'M',
-    avatar2: 'H',
-    quote: 'As a revert, I was nervous about finding someone who understood my journey. Shiarishta\'s detailed religiosity and Marja\' filters helped me find Hassan — someone who shares my values and respects my family\'s involvement.',
-    highlight: 'Cross-continent match',
-    rating: 5,
-  },
-  {
-    id: 3,
-    names: 'Fatima & Ali',
-    location: 'Toronto, Canada',
-    date: 'Married January 2026',
-    avatar1: 'F',
-    avatar2: 'A',
-    quote: 'The chaperone mode was a game-changer. My father was part of our conversations from the beginning, which gave our families confidence. The privacy controls meant I could browse discreetly until I was ready.',
-    highlight: 'Family-involved journey',
-    rating: 5,
-  },
-  {
-    id: 4,
-    names: 'Ayesha & Muhammad',
-    location: 'Dubai, UAE',
-    date: 'Married April 2026',
-    avatar1: 'A',
-    avatar2: 'M',
-    quote: 'We both had demanding careers and needed a platform that understood serious intentions. The AI compatibility index highlighted our shared timeline and values. We\'re grateful for the respectful, intentional space Shiarishta creates.',
-    highlight: '94% compatibility',
-    rating: 5,
-  },
-  {
-    id: 5,
-    names: 'Huda & Bilal',
-    location: 'Sydney, Australia',
-    date: 'Married July 2026',
-    avatar1: 'H',
-    avatar2: 'B',
-    quote: 'After a divorce, I was hesitant to try again. The guardian-managed profile option let my sister help me navigate the process. Bilal and I connected over shared experiences and a commitment to building something beautiful together.',
-    highlight: 'Second marriage success',
-    rating: 5,
-  },
-  {
-    id: 6,
-    names: 'Sakina & Jafar',
-    location: 'Mumbai, India',
-    date: 'Married August 2026',
-    avatar1: 'S',
-    avatar2: 'J',
-    quote: 'Our families had been searching for years. Shiarishta\'s detailed sect and community filters finally connected us. The platform\'s respect for our traditions while offering modern tools made all the difference.',
-    highlight: 'Family-arranged + modern',
-    rating: 5,
-  },
-];
+// ─────────────────────────────────────────────────────────────────────────────
+// This page used to list six couples with names, cities, wedding dates, 5-star
+// ratings and first-person quotes, under a stats bar claiming "2,400+ marriages",
+// "96% satisfaction" and "3.2 months average to engagement". None of it was real.
+// One quote specifically thanked "the chaperone mode" -- a feature that never
+// worked and has since been removed.
+//
+// Fabricated testimonials are not a marketing shortcut. They are a false-
+// advertising problem (FTC s5 for US users), they get the platform sued, and
+// they poison every other number on the site: if the couples are invented, why
+// should anyone believe the member count?
+//
+// Until real couples consent to being listed -- with their names, their own
+// words, and their permission -- this page does the only honest thing available
+// and explains exactly how the product behaves.
+// ─────────────────────────────────────────────────────────────────────────────
 
-const STATS = [
-  { value: '2,400+', label: 'Marriages' },
-  { value: '96%', label: 'Satisfaction rate' },
-  { value: '3.2 months', label: 'Avg. to engagement' },
-  { value: '45+', label: 'Countries represented' },
+const STEPS = [
+  {
+    icon: Users,
+    title: 'A profile, on your terms',
+    body: 'You choose how discoverable you are: public to everyone, members only, or private until you say otherwise. Photo visibility is a separate control, so a visible profile is never a visible photo by default.',
+    points: ['Profile and photo privacy are two independent controls', 'Change either at any time', 'Private profiles are absent from search and from other members'],
+  },
+  {
+    icon: Lock,
+    title: 'Messaging stays closed until you both agree',
+    body: 'Anyone can send interest. A conversation opens only when interest runs both ways. There are no cold approaches, and nobody can reach you because they guessed your email address.',
+    points: ['Mutual interest required before a single message', 'Phone numbers, emails and handles are removed before a message is stored', 'Blocking cuts existing history too, not just new sends'],
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Verification you can actually check',
+    body: 'Submit a government ID or a selfie. It is encrypted before it touches the disk, read only by our review team, and never shown to another member. Verified members carry a visible badge.',
+    points: ['ID document and selfie accepted', 'Encrypted at rest with AES-256-GCM', 'Reviewed by a person, not a guess'],
+  },
+  {
+    icon: UserCheck,
+    title: 'When family goes first, that is supported',
+    body: 'A family member or approved matchmaker can create a private introduction on someone else`s behalf and share it by secure link. It carries no photos, expires after 45 days, and the person it concerns stays in control throughout.',
+    points: ['No photos are ever attached to an introduction', '45-day expiry, plus a short code', 'Claim it, decline it, or have it withdrawn -- their call, always'],
+  },
+  {
+    icon: Eye,
+    title: 'Filters that reflect what matters',
+    body: 'Narrow by sect, Marja` affiliation, religiosity, education, location and photo-access tier before anyone exchanges a word. A shared Marja` decides which rulings govern a household -- it is not a detail.',
+    points: ['Sect, sub-sect and Marja`', 'Religiosity, education, location, age', 'Verified-only and photo-access tiers'],
+  },
+  {
+    icon: Heart,
+    title: 'Free, and no paywalls',
+    body: 'Profile creation, browsing, interest and messaging are all free. Identity verification is included for every member. Nothing about your privacy is a premium feature.',
+    points: ['No paywall on messaging or contact', 'Verification included for everyone', 'No paid tier today'],
+  },
 ];
 
 export default function SuccessStories() {
   return (
     <Layout>
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-        {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
-          <span className="text-xs font-bold uppercase tracking-widest text-primary">Real love, real stories</span>
-          <h1 className="text-3xl sm:text-5xl font-bold text-ink mt-2">Success Stories</h1>
-          <p className="text-muted mt-3 max-w-xl mx-auto">Every marriage begins with a single step. Here are couples who found their match through Shiarishta.</p>
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-10"
+        >
+          <span className="text-xs font-bold uppercase tracking-widest text-primary">
+            How Shiarishta works
+          </span>
+          <h1 className="text-3xl sm:text-4xl font-bold text-ink mt-2">
+            What we actually do
+          </h1>
+          <p className="text-muted mt-3 max-w-2xl mx-auto leading-relaxed">
+            We have not published member success stories yet. Inventing them would
+            be the fastest way to look established, and the surest way to lose the
+            trust this platform depends on. So instead, here is precisely how the
+            product behaves.
+          </p>
         </motion.div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-14">
-          {STATS.map((stat, i) => (
-            <motion.div key={stat.label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
-              className="text-center p-5 rounded-2xl bg-elevated border border-line/20">
-              <div className="text-2xl font-bold text-primary">{stat.value}</div>
-              <div className="text-xs text-muted mt-1">{stat.label}</div>
-            </motion.div>
-          ))}
+        <div className="grid gap-5 md:grid-cols-2">
+          {STEPS.map((step, i) => {
+            const Icon = step.icon;
+            return (
+              <motion.article
+                key={step.title}
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="card p-6"
+              >
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
+                  style={{ background: 'var(--color-primary-subtle)', color: 'var(--color-primary)' }}
+                >
+                  <Icon className="w-5 h-5" aria-hidden="true" />
+                </div>
+                <h2 className="text-lg font-bold text-ink mb-2">{step.title}</h2>
+                <p className="text-sm text-muted leading-relaxed mb-3">{step.body}</p>
+                <ul className="space-y-1.5">
+                  {step.points.map((p) => (
+                    <li key={p} className="flex items-start gap-2 text-xs text-muted">
+                      <CheckCircle
+                        className="w-3.5 h-3.5 mt-0.5 flex-shrink-0"
+                        style={{ color: 'var(--color-success, #10b981)' }}
+                        aria-hidden="true"
+                      />
+                      <span>{p}</span>
+                    </li>
+                  ))}
+                </ul>
+              </motion.article>
+            );
+          })}
         </div>
 
-        {/* Stories grid */}
-        <div className="grid md:grid-cols-2 gap-6 mb-14">
-          {STORIES.map((story, i) => (
-            <motion.div key={story.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.08 }}
-              className="bg-elevated rounded-2xl border border-line/20 p-6 sm:p-8 hover:shadow-md transition-all">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex -space-x-2">
-                  <span className="w-10 h-10 rounded-full bg-primary/15 text-primary font-bold flex items-center justify-center text-sm border-2 border-elevated">{story.avatar1}</span>
-                  <span className="w-10 h-10 rounded-full bg-accent/15 text-accent font-bold flex items-center justify-center text-sm border-2 border-elevated">{story.avatar2}</span>
-                </div>
-                <div>
-                  <h3 className="font-bold text-ink">{story.names}</h3>
-                  <div className="flex items-center gap-2 text-xs text-muted">
-                    <MapPin className="w-3 h-3" /> {story.location}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 mb-3">
-                {Array.from({ length: story.rating }).map((_, idx) => (
-                  <Star key={idx} className="w-4 h-4 text-amber-400 fill-amber-400" />
-                ))}
-              </div>
-              <div className="relative mb-4">
-                <Quote className="w-6 h-6 text-primary/20 absolute -top-1 -left-1" />
-                <p className="text-sm text-muted leading-relaxed pl-6">{story.quote}</p>
-              </div>
-              <div className="flex items-center justify-between pt-4 border-t border-line/15">
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-success bg-success/10 px-3 py-1 rounded-full">
-                  <CheckCircle className="w-3.5 h-3.5" /> {story.highlight}
-                </span>
-                <span className="flex items-center gap-1 text-xs text-muted"><Calendar className="w-3 h-3" /> {story.date}</span>
-              </div>
-            </motion.div>
-          ))}
+        <div
+          className="card p-8 mt-8 text-center"
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+        >
+          <h2 className="text-xl font-bold text-ink mb-2">Married through Shiarishta?</h2>
+          <p className="text-sm text-muted max-w-lg mx-auto leading-relaxed mb-5">
+            If you found your spouse here and you would like your story listed
+            with your real name and your own words, get in touch. We publish only
+            with your explicit permission, and we send you the exact text before
+            anything goes up.
+          </p>
+          <Link
+            to="/contact"
+            className="button primary inline-flex items-center gap-2 px-5 py-2.5"
+          >
+            Share your story <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
-
-        {/* CTA */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
-          className="text-center bg-gradient-to-br from-primary/10 via-accent/5 to-primary/10 rounded-2xl border border-primary/15 p-8 sm:p-12">
-          <Heart className="w-10 h-10 text-primary mx-auto mb-4" />
-          <h2 className="text-2xl sm:text-3xl font-bold text-ink mb-3">Your story starts here</h2>
-          <p className="text-muted max-w-lg mx-auto mb-6">Join thousands of Shia singles and families who found their match with intention, privacy, and faith.</p>
-          <div className="flex flex-wrap justify-center gap-3">
-            <Link to="/auth/register" className="button primary px-7 py-3 font-semibold inline-flex items-center gap-2">
-              Create Your Profile <ArrowRight className="w-4 h-4" />
-            </Link>
-            <Link to="/pricing" className="button secondary px-7 py-3 font-semibold">View Plans</Link>
-          </div>
-        </motion.div>
       </main>
     </Layout>
   );

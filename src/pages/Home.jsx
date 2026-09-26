@@ -173,7 +173,8 @@ export default function Home() {
             <p className="hp-eyebrow"><span aria-hidden="true" /> Featured profiles</p>
             <h2>Curated profiles that feel premium at first glance</h2>
             <p className="hp-lede hp-lede-center">
-              A quiet look at the member experience — every profile is verified, privacy-protected, and intentional.
+              A quiet look at the member experience — privacy is the default, and members who have
+              completed identity verification carry a visible badge.
             </p>
           </motion.div>
           <div className="profile-grid">
