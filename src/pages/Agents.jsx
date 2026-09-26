@@ -1,80 +1,90 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import Layout from '../layouts/LandingLayout';
-import { useToast } from '../lib/useToast';
 import { Sparkles, Brain, MessageCircle, UserCheck, Heart, Search, ArrowRight, CheckCircle, Shield } from 'lucide-react';
 
-const AGENTS = [
+// These are the real, working parts of Shiarishta. Earlier versions of this
+// page advertised "AI agents" with invented accuracy/match/rating figures and a
+// button that only fired a toast. None of that exists. Everything below is
+// something you can actually use, and every card links to it.
+const TOOLS = [
   {
-    id: 'matcher',
-    name: 'Matcher',
-    tagline: 'Your AI compatibility advisor',
+    id: 'compatibility',
+    name: 'Compatibility Score',
+    tagline: 'See where you align',
     type: 'matchmaking',
     icon: Heart,
     color: 'from-rose-400 to-pink-500',
-    description: 'Matcher analyzes profiles across faith, values, lifestyle, and intentions to surface your strongest compatibility matches. It learns from your interactions to refine recommendations over time.',
-    capabilities: ['AI-powered compatibility scoring', 'Smart match recommendations', 'Preference learning from activity', 'Real-time filter optimization'],
-    stats: { accuracy: '94%', matches: '12K+', rating: '4.9' },
+    description: 'A 0–100% score weighting shared faith practice, values, lifestyle, language and timeline. It is a transparent formula, not a black box — the breakdown shows exactly what raised or lowered it.',
+    capabilities: ['Weighted across faith, values and timeline', 'Shows the full breakdown, not just a number', 'Never shared with other members'],
+    href: '/profiles',
+    cta: 'Browse profiles',
   },
   {
     id: 'profile-coach',
-    name: 'Profile Coach',
-    tagline: 'Polish your story',
+    name: 'Profile Completeness',
+    tagline: 'Make your profile work harder',
     type: 'profile',
     icon: UserCheck,
     color: 'from-violet-400 to-purple-500',
-    description: 'Get personalized suggestions to make your profile stand out — from bio writing to photo selection. Profile Coach ensures your authentic self shines through.',
-    capabilities: ['Bio writing suggestions', 'Photo quality analysis', 'Completeness scoring', 'Visibility optimization tips'],
-    stats: { accuracy: '89%', matches: '8.2K+', rating: '4.8' },
+    description: 'A checklist that shows exactly which fields are missing and why each one helps. Complete profiles get meaningfully more interest — the dashboard tracks your percentage as you go.',
+    capabilities: ['Live completeness percentage', 'Tells you which fields matter most', 'Autosaves as you go'],
+    href: '/onboard',
+    cta: 'Complete your profile',
   },
   {
-    id: 'conversation',
-    name: 'Conversation Guide',
-    tagline: 'Meaningful icebreakers',
-    type: 'communication',
-    icon: MessageCircle,
-    color: 'from-sky-400 to-blue-500',
-    description: 'Stuck on what to say? Conversation Guide suggests thoughtful, values-based openers tailored to each match — no cheesy lines, just genuine connection starters.',
-    capabilities: ['Personalized icebreakers', 'Values-based conversation starters', 'Wali-friendly message templates', 'Timing suggestions'],
-    stats: { accuracy: '91%', matches: '6.7K+', rating: '4.8' },
+    id: 'filters',
+    name: 'Sect & Marja\' Filters',
+    tagline: 'Match within your jamat',
+    type: 'matchmaking',
+    icon: Search,
+    color: 'from-amber-400 to-orange-500',
+    description: 'Filter by Ithna Ashari, Ismaili, Zaydi or Bohra, then narrow by Marja\' affiliation, practice level, location and language — before you ever start a conversation.',
+    capabilities: ['Sect and sub-sect filtering', 'Marja\' affiliation', 'Verified-only filter'],
+    href: '/profiles',
+    cta: 'Use the filters',
   },
   {
-    id: 'wali-assist',
-    name: 'Wali Assist',
-    tagline: 'Respectful family coordination',
+    id: 'introductions',
+    name: 'Family Introductions',
+    tagline: 'When family starts it',
     type: 'communication',
     icon: Shield,
     color: 'from-emerald-400 to-teal-500',
-    description: 'Coordinate smoothly with guardians and chaperones. Wali Assist helps families stay involved with transparency — sharing profiles, managing requests, and keeping everyone aligned.',
-    capabilities: ['Guardian invitation workflows', 'Co-management permissions', 'Family approval tracking', 'Respectful chaperone integration'],
-    stats: { accuracy: '96%', matches: '4.1K+', rating: '4.9' },
+    description: 'A family member or approved matchmaker can create a private introduction for you and share it by secure link. It carries no photos, expires after 45 days, and you decide whether to claim it, decline it, or have it withdrawn.',
+    capabilities: ['No photos attached to an introduction', '45-day expiry, plus short code', 'You keep control: claim, decline or withdraw'],
+    href: '/drafts',
+    cta: 'See introductions',
   },
   {
-    id: 'compatibility',
-    name: 'Compatibility Analyst',
-    tagline: 'Deep-dive alignment reports',
-    type: 'matchmaking',
-    icon: Brain,
-    color: 'from-amber-400 to-orange-500',
-    description: 'Get a detailed breakdown of compatibility across faith, values, lifestyle, and timeline alignment — with actionable insights on where you match and where to communicate openly.',
-    capabilities: ['Multi-factor alignment breakdown', 'Faith & values comparison', 'Lifestyle compatibility scoring', 'Timeline alignment analysis'],
-    stats: { accuracy: '97%', matches: '15K+', rating: '5.0' },
+    id: 'gated-messaging',
+    name: 'Mutual-Interest Messaging',
+    tagline: 'No cold approaches',
+    type: 'communication',
+    icon: MessageCircle,
+    color: 'from-sky-400 to-blue-500',
+    description: 'Messaging only opens when interest runs both ways, and contact details are stripped from messages before they are stored. You are never contacted by someone who has not sought you out first.',
+    capabilities: ['Conversation opens only on mutual interest', 'Phone, email and handles removed automatically', 'Block any member instantly'],
+    href: '/messages',
+    cta: 'Open messages',
   },
   {
-    id: 'privacy-guard',
-    name: 'Privacy Guard',
-    tagline: 'Your data, your rules',
+    id: 'verification',
+    name: 'Identity Verification',
+    tagline: 'Earn the verified badge',
     type: 'profile',
-    icon: Search,
+    icon: Brain,
     color: 'from-slate-400 to-gray-500',
-    description: 'Automated privacy recommendations based on your preferences. Privacy Guard suggests optimal photo visibility, profile access, and watermarking settings to keep you in control.',
-    capabilities: ['Auto privacy recommendations', 'Photo visibility optimization', 'Screenshot-deterrent watermarking', 'Incognito mode guidance'],
-    stats: { accuracy: '99%', matches: '9.8K+', rating: '4.7' },
+    description: 'Submit a government ID or a selfie. The file is encrypted before it is stored, read only by our review team, and never shown to another member. Verified members carry a badge.',
+    capabilities: ['Encrypted at rest before storage', 'Reviewed by people, not a guess', 'Never shown to other members'],
+    href: '/settings',
+    cta: 'Start verification',
   },
 ];
 
 const TABS = [
-  { id: 'all', label: 'All Agents', icon: Sparkles },
+  { id: 'all', label: 'Everything', icon: Sparkles },
   { id: 'matchmaking', label: 'Matchmaking', icon: Heart },
   { id: 'profile', label: 'Profile', icon: UserCheck },
   { id: 'communication', label: 'Communication', icon: MessageCircle },
@@ -83,29 +93,20 @@ const TABS = [
 export default function Agents() {
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [engaging, setEngaging] = useState(null);
-  const { addToast } = useToast();
 
-  const filtered = AGENTS.filter(a => {
+  const filtered = TOOLS.filter(a => {
     const matchesTab = activeTab === 'all' || a.type === activeTab;
     const matchesSearch = searchQuery === '' || a.name.toLowerCase().includes(searchQuery.toLowerCase()) || a.tagline.toLowerCase().includes(searchQuery.toLowerCase()) || a.description.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTab && matchesSearch;
   });
 
-  const handleEngage = async (agent) => {
-    setEngaging(agent.id);
-    await new Promise(r => setTimeout(r, 800));
-    setEngaging(null);
-    addToast(`Engaging with ${agent.name}…`, 'success');
-  };
-
   return (
     <Layout>
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10">
-          <span className="text-xs font-bold uppercase tracking-widest text-primary">AI-powered assistance</span>
-          <h1 className="text-3xl sm:text-4xl font-bold text-ink mt-2">Your Matchmaking Agents</h1>
-          <p className="text-muted mt-2 max-w-xl mx-auto">Intelligent assistants that help you navigate the journey — from profile building to meaningful conversations.</p>
+          <span className="text-xs font-bold uppercase tracking-widest text-primary">What Shiarishta actually does</span>
+          <h1 className="text-3xl sm:text-4xl font-bold text-ink mt-2">Tools that work for you</h1>
+          <p className="text-muted mt-2 max-w-xl mx-auto">No buzzwords — these are the real features behind your journey, from profile building to family introductions. Every card takes you straight to it.</p>
         </motion.div>
 
         {/* Search */}
@@ -147,22 +148,6 @@ export default function Agents() {
                 <p className="text-sm text-primary font-medium mb-2">{agent.tagline}</p>
                 <p className="text-xs text-muted leading-relaxed mb-4">{agent.description}</p>
 
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                  <div className="text-center p-2 rounded-lg bg-hover/60">
-                    <div className="text-sm font-bold text-ink">{agent.stats.accuracy}</div>
-                    <div className="text-[10px] text-muted">Accuracy</div>
-                  </div>
-                  <div className="text-center p-2 rounded-lg bg-hover/60">
-                    <div className="text-sm font-bold text-ink">{agent.stats.matches}</div>
-                    <div className="text-[10px] text-muted">Uses</div>
-                  </div>
-                  <div className="text-center p-2 rounded-lg bg-hover/60">
-                    <div className="text-sm font-bold text-ink">{agent.stats.rating}</div>
-                    <div className="text-[10px] text-muted">Rating</div>
-                  </div>
-                </div>
-
                 {/* Capabilities */}
                 <div className="space-y-1.5 mb-5">
                   {agent.capabilities.map(cap => (
@@ -172,21 +157,16 @@ export default function Agents() {
                   ))}
                 </div>
 
-                <button onClick={() => handleEngage(agent)} disabled={engaging === agent.id}
-                  className="w-full button primary py-2.5 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
-                  {engaging === agent.id ? (
-                    <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Starting…</>
-                  ) : (
-                    <>Get Started <ArrowRight className="w-4 h-4" /></>
-                  )}
-                </button>
+                <Link to={agent.href} className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
+                  {agent.cta} <ArrowRight className="w-4 h-4" />
+                </Link>
               </div>
             </motion.div>
           ))}
         </div>
 
         {filtered.length === 0 && (
-          <p className="text-center text-muted py-12">No agents match your search. Try different keywords.</p>
+          <p className="text-center text-muted py-12">No tools match your search. Try different keywords.</p>
         )}
       </main>
     </Layout>

@@ -123,7 +123,7 @@ export default function Messages() {
   const [activeId, setActiveId] = useState(null);
   const [tab, setTab] = useState('chats'); // 'chats' | 'requests'
   const [search, setSearch] = useState('');
-  const [chaperoneModal, setChaperoneModal] = useState(null); // convo object
+  const [chaperoneModal] = useState(null); // retained: see note at ChatPane header
   const messagesEndRef = useRef(null);
 
   const activeConvo = convos.find(c => c.id === activeId) || null;
@@ -166,15 +166,6 @@ export default function Messages() {
       setActiveId(newConvo.id);
       setTab('chats');
     }
-  };
-
-  const toggleChaperone = (convoId, guardianName) => {
-    setConvos(prev => prev.map(c => c.id === convoId ? {
-      ...c,
-      guardianInvited: guardianName ? true : !c.guardianInvited,
-      ...(guardianName ? { guardianName } : { guardianName: undefined })
-    } : c));
-    setChaperoneModal(null);
   };
 
   const filteredConvos = convos.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
@@ -221,21 +212,12 @@ export default function Messages() {
         <div className={`flex-1 flex-col ${activeId ? 'flex' : 'hidden md:flex'}`}>
           {activeConvo ? (
             <ChatPane convo={activeConvo} messages={messages} onBack={() => setActiveId(null)}
-              onSend={sendMessage} messagesEndRef={messagesEndRef}
-              onInviteChaperone={() => setChaperoneModal(activeConvo)} />
+              onSend={sendMessage} messagesEndRef={messagesEndRef} />
           ) : (
             <EmptyState hasRequests={requests.length > 0} onOpenRequests={() => setTab('requests')} />
           )}
         </div>
       </main>
-
-      <AnimatePresence>
-        {chaperoneModal && (
-          <ChaperoneModal convo={chaperoneModal}
-            onClose={() => setChaperoneModal(null)}
-            onConfirm={(name) => toggleChaperone(chaperoneModal.id, name)} />
-        )}
-      </AnimatePresence>
     </Layout>
   );
 }
@@ -274,7 +256,6 @@ function ConversationList({ convos, activeId, onSelect }) {
             <span className="flex items-center gap-1.5">
               <span className="text-sm font-semibold text-ink truncate">{c.name}, {c.age}</span>
               {c.verified && <BadgeCheck className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--color-primary)' }} aria-label="ID verified" />}
-              {c.guardianInvited && <ShieldCheck className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--color-accent)' }} aria-label="Chaperone active" />}
             </span>
             <span className="flex items-center gap-1.5 text-xs text-muted mt-0.5">
               <span className="truncate">{c.city}</span>
@@ -367,7 +348,7 @@ function EmptyState({ hasRequests, onOpenRequests }) {
           </div>
         )}
         <p className="mt-6 text-xs flex items-center gap-2" style={{ color: 'var(--color-ink-tertiary)' }}>
-          <ShieldCheck className="w-3 h-3" /> End-to-end private · Chaperone supported · No contact details shared
+          <ShieldCheck className="w-3 h-3" /> Only the two of you can read this · Encrypted at rest · No contact details shared
         </p>
       </div>
     </div>
@@ -375,7 +356,7 @@ function EmptyState({ hasRequests, onOpenRequests }) {
 }
 
 // ── Chat pane: header, icebreakers, composer ────────────────────────────────
-function ChatPane({ convo, messages, onBack, onSend, messagesEndRef, onInviteChaperone }) {
+function ChatPane({ convo, messages, onBack, onSend, messagesEndRef }) {
   const [draft, setDraft] = useState('');
 
   return (
@@ -398,19 +379,12 @@ function ChatPane({ convo, messages, onBack, onSend, messagesEndRef, onInviteCha
           </div>
           <p className="text-xs text-muted truncate">{convo.online ? 'Online now' : 'Offline'} · {convo.city} · {convo.compatibility}% match</p>
         </div>
-        {convo.guardianInvited ? (
-          <span
-            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium btn btn-ghost btn-xs"
-            style={{ background: 'var(--color-primary-subtle)', color: 'var(--color-primary)' }}>
-            <ShieldCheck className="w-2.5 h-2.5" /> {convo.guardianName || 'Chaperone present'}
-          </span>
-        ) : (
-          <button onClick={onInviteChaperone}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium btn btn-ghost btn-xs"
-            style={{ border: '1px solid var(--color-border)', color: 'var(--color-ink-secondary)' }}>
-            <UserPlus className="w-2.5 h-2.5" /> Invite chaperone
-          </button>
-        )}
+        {/* NOTE: there is deliberately no "invite chaperone" control here.
+            An earlier version had one, but it only flipped local React state —
+            it never called the API, granted nobody access, and told the user
+            "Chaperone present". A safety affordance that silently does nothing
+            is worse than no affordance at all, so it was removed rather than
+            relabelled. Family involvement happens through introductions. */}
         <button aria-label="Conversation options" className="btn btn-ghost btn-sm">
           <MoreVertical className="w-2.5 h-2.5" />
         </button>
@@ -499,71 +473,14 @@ function Bubble({ msg }) {
   );
 }
 
-// ── Chaperone invite modal — transparent, respectful family involvement ─────
-function ChaperoneModal({ convo, onClose, onConfirm }) {
-  const [name, setName] = useState('');
-  const [error, setError] = useState('');
-
-  const submit = (e) => {
-    e.preventDefault();
-    const trimmed = name.trim();
-    if (trimmed.length < 3) { setError("Please enter your guardian's name (e.g. 'Hassan N. — father')."); return; }
-    onConfirm(trimmed);
-  };
-
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}
-      onClick={onClose} role="dialog" aria-modal="true" aria-label="Invite chaperone">
-      <motion.div initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 16 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 26 }}
-        className="w-full max-w-md rounded-2xl shadow-lg"
-        style={{ background: 'var(--color-elevated)', border: '1px solid var(--color-border)' }}
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-ink">Invite a chaperone</h2>
-            <p className="text-sm text-muted mt-1">Conversation with <strong className="text-ink">{convo.name}</strong></p>
-          </div>
-          <button onClick={onClose} aria-label="Close"
-            className="btn btn-ghost btn-sm">
-            <X className="w-3 h-3" />
-          </button>
-        </div>
-
-        <div className="mb-4">
-          <ShieldCheck className="w-3 h-3 inline mr-1.5 -mt-0.5" style={{ color: 'var(--color-primary)' }} />
-          <p className="mt-2 text-sm leading-relaxed">
-            Your guardian will see this conversation in real time and can guide the introduction. Transparency builds trust — and is rewarded in matching.
-          </p>
-        </div>
-
-        <form onSubmit={submit} className="space-y-4">
-          <div>
-            <label htmlFor="guardian-name" className="text-sm font-semibold text-ink mb-1.5 block">Guardian's name & relation <span className="text-xs" style={{ color: 'var(--color-primary)' }}>*</span></label>
-            <input id="guardian-name" type="text" value={name} onChange={e => { setName(e.target.value); setError(''); }}
-              placeholder="e.g. Hassan N. — father" maxLength={60} autoFocus
-              className="input w-full"
-              style={{ background: 'var(--color-bg)', border: `1px solid ${error ? '#dc2626' : 'var(--color-border)'}`, color: 'var(--color-ink)' }} />
-            {error && <p className="mt-1.5 text-xs" style={{ color: '#dc2626' }} role="alert">{error}</p>}
-          </div>
-          <p className="text-xs" style={{ color: 'var(--color-ink-tertiary)' }}>
-            They'll receive a secure email invitation to join as a participant.
-          </p>
-          <div className="flex gap-3 mt-4">
-            <button type="submit" className="btn btn-primary">
-              Send invitation
-            </button>
-            <button type="button" onClick={onClose}
-              className="btn btn-ghost">
-              Cancel
-            </button>
-          </div>
-        </form>
-      </motion.div>
-    </motion.div>
-  );
-}
+// ── Removed: ChaperoneModal ────────────────────────────────────────────────
+// This modal asked for a guardian's name, then told the user "Your guardian
+// will see this conversation in real time" and "They'll receive a secure email
+// invitation to join as a participant". Neither was true: onConfirm only set
+// local React state, no invitation was ever sent, and no server-side record
+// existed. Removing a control is the correct fix — re-labelling it would still
+// imply a guarantee the platform cannot make.
+// ───────────────────────────────────────────────────────────────────────────
 
 
 

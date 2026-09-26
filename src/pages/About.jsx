@@ -4,11 +4,11 @@ import Layout from '../layouts/LandingLayout';
 import { Heart, Shield, Users, Sparkles, Globe, Eye, ArrowRight } from 'lucide-react';
 
 const VALUES = [
-  { icon: Shield, title: 'Privacy by Default', desc: 'Your photos, your profile, your rules. Blur-on-default, watermarked sharing, and incognito browsing come standard — not as premium add-ons.' },
+  { icon: Shield, title: 'Privacy by Default', desc: 'Your photos, your profile, your rules. Hidden-until-match by default, encrypted message storage, and discreet browsing come standard — not as premium add-ons.' },
   { icon: Heart, title: 'Intention First', desc: 'We built Shiarishta for one purpose: serious nikah-seeking. No swiping culture, no casual browsing — just verified, intentional members.' },
-  { icon: Users, title: 'Family-Centered', desc: 'Wali workflows, chaperone mode, and guardian management aren\'t afterthoughts. They\'re built into the platform from day one.' },
+  { icon: Users, title: 'Family-Centered', desc: 'Wali workflows and family-managed introductions aren\'t afterthoughts. They\'re built into the platform from day one.' },
   { icon: Globe, title: 'Community-Driven', desc: 'From Ithna Ashari to Ismaili, Bohra to Zaydi — we serve the full diversity of Shia Islam with granular sect and Marja\' filters.' },
-  { icon: Sparkles, title: 'AI-Powered', desc: 'Our compatibility engine analyzes faith, values, lifestyle, and timeline alignment — surfacing matches that truly matter.' },
+  { icon: Sparkles, title: 'Values-Matched', desc: 'Our compatibility score weighs faith practice, values, lifestyle and timeline alignment — surfacing matches that genuinely matter.' },
   { icon: Eye, title: 'Transparent', desc: 'No hidden paywalls behind basic navigation. Clear pricing, honest matching, and a team that responds within hours.' },
 ];
 

@@ -566,7 +566,7 @@ function StepPrivacy({ data, update, errors }) {
         <p className="text-sm text-muted mt-1">Privacy is a right, not a premium feature. These settings can be changed anytime.</p>
       </div>
 
-      <Field label="Photo visibility" hint="Your photos, your rules — every mode includes automatic screenshot-deterrent watermarking.">
+      <Field label="Photo visibility" hint="Your photos, your rules — you decide who can open them, and you can change this any time.">
         <div className="grid gap-2.5">
           {PHOTO_ACCESS_OPTIONS.map(opt => {
             const Icon = PHOTO_ICONS[opt.icon];
@@ -601,7 +601,7 @@ function StepPrivacy({ data, update, errors }) {
       <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/15 flex items-start gap-2.5">
         <Lock className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
         <p className="text-xs text-muted leading-relaxed">
-          <strong className="text-ink font-semibold">Watermark protection:</strong> every shared photo is subtly tagged with the viewer's ID, deterring screenshots and unauthorized redistribution.
+          <strong className="text-ink font-semibold">You stay in control:</strong> photos stay blurred until you choose to reveal them, and you can hide them again at any time from Settings.
         </p>
       </div>
 

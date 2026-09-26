@@ -37,7 +37,7 @@ const sections = [
     id: 'privacy',
     title: '6. Privacy & Data',
     icon: Shield,
-    content: 'Your privacy is governed by our Privacy Policy (incorporated herein). We encrypt data in transit and at rest. Photos are watermarked with viewer IDs. You control profile and photo visibility. We never sell personal data. Refer to our Privacy Policy for full details on data collection, use, and your rights.'
+    content: 'Your privacy is governed by our Privacy Policy (incorporated herein). Message contents and identity-verification uploads are encrypted at rest (AES-256-GCM) and all traffic is encrypted in transit (TLS). Passwords are one-way hashed and cannot be recovered. You control profile and photo visibility. We never sell personal data. Refer to our Privacy Policy for full details on data collection, use, and your rights.'
   },
   {
     id: 'payments',

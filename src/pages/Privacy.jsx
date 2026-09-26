@@ -9,9 +9,9 @@ const sections = [
     icon: Download,
     content: [
       { heading: 'Profile Information', text: 'Display name, age, city, country, profession, education, ethnicity, languages, bio, and faith details (sect, religiosity, Marja\', modesty practice, diet). These are provided voluntarily during onboarding and can be edited at any time.' },
-      { heading: 'Account Information', text: 'Email address (encrypted), hashed password, display name, and authentication tokens. We never store your password in plain text.' },
-      { heading: 'Usage & Activity', text: 'Pages viewed, profiles browsed, interests expressed, messages sent (encrypted at rest), search filters used, and device/browser information. This helps us improve the platform and recommend better matches.' },
-      { heading: 'Photos & Media', text: 'Photos you upload are stored encrypted and watermarked with viewer IDs. You control who sees them through privacy settings.' },
+      { heading: 'Account Information', text: 'Email address, hashed password, display name, and authentication tokens. We never store your password in plain text — passwords are one-way hashed (bcrypt) and cannot be read back, by us or anyone else. One-time email verification and password-reset links are stored only as SHA-256 hashes, so a database leak cannot be replayed as a valid link.' },
+      { heading: 'Usage & Activity', text: 'Pages viewed, profiles browsed, interests expressed, messages sent, search filters used, and device/browser information. This helps us improve the platform and recommend better matches.' },
+      { heading: 'Photos & Media', text: 'You choose who can see your photos, and you can change or remove them at any time. We do not publish your photos to search engines or third parties, and we do not sell or license your images to anyone.' },
     ]
   },
   {
@@ -19,9 +19,9 @@ const sections = [
     title: '2. How We Use Your Information',
     icon: UserCheck,
     content: [
-      { heading: 'Matching & Recommendations', text: 'Your profile details and preferences power our AI Compatibility Index. We use this data solely to suggest relevant matches — never for advertising or sold to third parties.' },
-      { heading: 'Communication', text: 'We facilitate messaging between matched members. Messages are encrypted at rest and in transit. Chaperone mode participants have access to conversation threads as configured.' },
-      { heading: 'Safety & Verification', text: 'ID verification submissions are encrypted and used only for badge issuance. We review reported content to maintain community safety.' },
+      { heading: 'Matching & Recommendations', text: 'Your profile details and preferences power our Compatibility Index, a transparent weighted score. We use this data solely to suggest relevant matches — never for advertising or sold to third parties.' },
+      { heading: 'Communication', text: 'We facilitate messaging between matched members. Messages are encrypted in transit (TLS) and encrypted at rest (AES-256-GCM), so a stolen database or backup does not reveal message contents. Only the two participants can read a conversation. Our staff cannot read your message history.' },
+      { heading: 'Safety & Verification', text: 'ID verification uploads are encrypted at rest before being written to disk and are readable only by our review team. Submission images are never shared with other members, never used for advertising, and are not retained once a review is complete. We review reported content to maintain community safety.' },
       { heading: 'Platform Improvement', text: 'Aggregated, anonymized usage data helps us improve features, fix bugs, and understand how members navigate the platform.' },
     ]
   },
@@ -30,7 +30,7 @@ const sections = [
     title: '3. Your Privacy Controls',
     icon: Eye,
     content: [
-      { heading: 'Photo Visibility', text: 'Choose between: Visible to All, Request Only, or Blurred Until Match. Every shared photo is watermarked with the viewer\'s ID to deter screenshots and unauthorized distribution.' },
+      { heading: 'Photo Visibility', text: 'Choose between: Visible to All, Request Only, or Blurred Until Match. You decide who can open each photo, and you can change this at any time.' },
       { heading: 'Profile Visibility', text: 'Set your profile as Discoverable (appears in search), Limited (visible only to matched members), or Incognito (hidden from search while browsing).' },
       { heading: 'Discreet Browsing', text: 'Incognito mode hides your online status and prevents you from appearing in other members\' visitor lists.' },
       { heading: 'Guardian Management', text: 'Add or remove guardians at any time. Guardians receive co-management permissions as configured — you can revoke access instantly.' },
@@ -52,7 +52,7 @@ const sections = [
     title: '5. Security',
     icon: Lock,
     content: [
-      { heading: 'Encryption', text: 'All data is encrypted in transit (TLS 1.3) and at rest (AES-256). Messages use end-to-end encryption within our platform.' },
+      { heading: 'Encryption', text: 'All data is encrypted in transit (TLS 1.3). Message contents and identity-verification uploads are additionally encrypted at rest (AES-256-GCM), so a stolen database or backup does not reveal them. Passwords are one-way hashed and cannot be recovered by anyone, including us.' },
       { heading: 'Authentication', text: 'Passwords are hashed using bcrypt. Optional two-factor authentication adds an extra layer of security.' },
       { heading: 'Monitoring', text: 'We monitor for suspicious activity and unauthorized access attempts. Accounts with unusual activity may be temporarily locked for protection.' },
     ]

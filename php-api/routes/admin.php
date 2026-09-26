@@ -129,10 +129,19 @@ function adminVerificationFile(string $verificationId): void
         je('File missing on disk.', 404);
     }
 
+    // Decrypt in memory, then stream. The plaintext never touches disk and is
+    // never cached: no-store on every response, and admins are the only readers.
+    $plain = decBytesAtRest((string)@file_get_contents($realFile));
+    if ($plain === '') {
+        je('Could not decrypt this file.', 500);
+    }
+
     header('Content-Type: image/jpeg');
-    header('Cache-Control: no-store');
+    header('Content-Length: ' . strlen($plain));
+    header('Cache-Control: no-store, no-cache, must-revalidate, private');
+    header('Pragma: no-cache');
     header('X-Content-Type-Options: nosniff');
-    readfile($realFile);
+    echo $plain;
     exit;
 }
 function adminOverview(): void

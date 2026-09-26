@@ -100,6 +100,30 @@ account and confirming the message arrives, or by grepping the PHP error log for
 `[mail:mail] sent`. An SMTP error also falls through to `mail()` rather than
 dropping the message.
 
+## Encryption at rest
+
+Message bodies and uploaded verification files are encrypted with **AES-256-GCM**
+(core OpenSSL, no extra extension) before they are written. A stolen database
+dump, a leaked `UPLOAD_DIR`, or a stolen backup yields no readable message text
+and no viewable ID document.
+
+- Envelope: `v1:<iv>:<gcm tag>:<ciphertext>`, base64. The `v1:` prefix means the
+  format is versioned and a future key rotation can recognise old rows.
+- GCM is authenticated: a tampered row fails to decrypt and is **refused**, never
+  silently served as garbage to a member.
+- **Legacy rows** (written before this existed, no `v1:` prefix) are passed
+  through unchanged so an existing database keeps working. Drain them once with
+  `php tests/reencrypt-legacy.php` — use `--dry-run` first; it is idempotent and
+  verifies each round-trip before writing.
+- `tests/crypto-check.php` asserts the round-trip, tamper rejection, unicode
+  handling, that the ciphertext never contains the plaintext, and that the
+  `messages` table holds no plaintext rows.
+
+`DATA_ENCRYPTION_KEY` is deliberately separate from `JWT_SECRET` so rotating one
+does not orphan the other. If it is unset, a key is derived from `JWT_SECRET`
+(development only). **Lose the key and every stored message and ID upload is
+permanently unreadable** — back it up somewhere other than the server.
+
 ## Asymmetries that are intentional (do not "fix" them)
 
 These look like bugs but are faithful ports of the Node handlers. Each is

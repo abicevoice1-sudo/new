@@ -67,7 +67,7 @@ function messagesList(): void
             'id' => $row['id'],
             'participantId' => $row['other_id'],
             'participantName' => $row['other_name'] ?: 'Member',
-            'lastMessage' => $row['last_message'] ?: '',
+            'lastMessage' => decAtRest($row['last_message']),
             'timestamp' => $row['last_at'] ?: $row['created_at'],
             'unread' => false,
         ];
@@ -104,7 +104,7 @@ function messageThread(string $id): void
         $out[] = [
             'id' => $row['id'],
             'senderId' => $row['sender_id'] === (string)$user['uid'] ? 'me' : 'them',
-            'text' => $row['body'],
+            'text' => decAtRest($row['body']),
             'timestamp' => $row['created_at'],
         ];
     }
@@ -184,8 +184,9 @@ function sendMessage(string $id): void
     }
 
     $msgId = uuid();
+    // Encrypted at rest (AES-256-GCM). Decrypted only for the two participants.
     $stmt = db()->prepare('INSERT INTO messages (id, conversation_id, sender_id, body) VALUES (?, ?, ?, ?)');
-    $stmt->execute([$msgId, $id, $user['uid'], $body]);
+    $stmt->execute([$msgId, $id, $user['uid'], encAtRest($body)]);
 
     $fetch = db()->prepare('SELECT id, body, created_at FROM messages WHERE id = ? LIMIT 1');
     $fetch->execute([$msgId]);
@@ -194,7 +195,7 @@ function sendMessage(string $id): void
     json([
         'id' => $saved['id'],
         'senderId' => 'me',
-        'text' => $saved['body'],
+        'text' => decAtRest($saved['body']),
         'timestamp' => $saved['created_at'],
     ], 201);
 }

@@ -109,7 +109,7 @@ export default function SwipeDeck({ profiles = [], onExpressInterest }) {
               <p className="text-sm mt-1.5 max-w-xs mx-auto" style={{ color: 'var(--text-muted)' }}>
                 {viewedCount
                   ? 'New members join weekly — browse the grid view or review the deck again.'
-                  : 'Swipe through intention-first profiles with AI compatibility insights.'}
+                  : 'Swipe through intention-first profiles with compatibility insights.'}
               </p>
               <div className="flex items-center justify-center gap-2.5 mt-5">
                 {viewedCount > 0 && (

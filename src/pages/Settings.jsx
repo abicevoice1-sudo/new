@@ -38,7 +38,7 @@ export default function Settings() {
   const [privacy, setPrivacy] = useState({
     profileVisibility: 'members', photoVisibility: 'members',
     showOnlineStatus: true, allowFamilyView: true, blockUnverified: false,
-    incognito: false, watermarkPhotos: true
+    incognito: false
   });
   const [privacySaved, setPrivacySaved] = useState('');
   const [blocks, setBlocks] = useState([]);

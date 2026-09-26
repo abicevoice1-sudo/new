@@ -39,7 +39,9 @@ function verificationSubmit(): void
     }
 
     $file = $uploadDir . DIRECTORY_SEPARATOR . 'v-' . $user['uid'] . '-' . time() . '.bin';
-    if (file_put_contents($file, $bytes) === false) {
+    // ID documents and selfies are encrypted before they touch the disk, so a
+    // leaked upload directory (or a stolen backup) yields no readable image.
+    if (file_put_contents($file, encBytesAtRest($bytes)) === false) {
         je('Could not save verification photo.', 500);
     }
 

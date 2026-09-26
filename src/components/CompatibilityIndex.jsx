@@ -40,7 +40,7 @@ function Dim({ label, value }) {
 }
 
 /**
- * Smart AI Compatibility Index — full breakdown with reasons.
+ * Compatibility Index — full breakdown with reasons.
  * Used inside the swipe deck card and (later) the profile detail view.
  */
 export default function CompatibilityIndex({ profile, compact = false }) {
@@ -67,7 +67,7 @@ export default function CompatibilityIndex({ profile, compact = false }) {
         <CompatibilityRing score={overall} size={72} stroke={6.5} />
         <div className="flex-1 space-y-1.5">
           <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--primary)' }}>
-            <Brain className="w-3.5 h-3.5" /> AI Compatibility Index
+            <Brain className="w-3.5 h-3.5" /> Compatibility Index
           </div>
           <Dim label="Faith" value={breakdown.faith} />
           <Dim label="Values" value={breakdown.values} />

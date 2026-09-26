@@ -1,4 +1,4 @@
-// Smart AI Compatibility Index — scores a candidate profile against the
+// Compatibility Index — scores a candidate profile against the
 // current member's onboarding answers. Pure function; no side effects.
 // Falls back to a neutral preference model when the member hasn't onboarded.
 

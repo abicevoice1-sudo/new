@@ -4,9 +4,9 @@ import { Shield, AlertTriangle, Eye, Lock, UserCheck, CheckCircle, Phone, Mail }
 
 const PRINCIPLES = [
   { icon: Shield, title: 'Identity Verification', desc: 'Every member can verify their government ID to earn a verified badge. Our team manually reviews submissions within 24 hours.' },
-  { icon: Eye, title: 'Blur-on-Default Photos', desc: 'Your photos are blurred by default. Only members you explicitly match with can view them. Watermarking deters unauthorized screenshots.' },
+  { icon: Eye, title: 'Blur-on-Default Photos', desc: 'Your photos are blurred by default. Only members you explicitly match with can view them, and you can hide every photo entirely.' },
   { icon: Lock, title: 'Discreet Browsing', desc: 'Incognito mode lets you browse profiles without appearing in visitor lists or online status. Your activity stays private.' },
-  { icon: UserCheck, title: 'Guardian Controls', desc: 'Add trusted family members as guardians. Control their permissions, revoke access anytime, and loop them into conversations.' },
+  { icon: UserCheck, title: 'Guardian Controls', desc: 'A family member or matchmaker can share a private introduction with you, and you decide whether to claim it. You can decline or withdraw any introduction at any time.' },
 ];
 
 const GUIDELINES = [
@@ -25,7 +25,7 @@ const GUIDELINES = [
 const REPORT_STEPS = [
   { num: '01', title: 'Flag the profile or message', desc: 'Click the "Report" button on any profile, message, or conversation.' },
   { num: '02', title: 'Select a reason', desc: 'Choose from harassment, fake profile, inappropriate content, or other safety concerns.' },
-  { num: '03', title: 'Our team reviews within 2 hours', desc: 'Every report is reviewed by a human. We take appropriate action — up to permanent removal.' },
+  { num: '03', title: 'Our team reviews within 24 hours', desc: 'Every report is reviewed by a human. We take appropriate action — up to permanent removal.' },
   { num: '04', title: 'You\'re notified of the outcome', desc: 'We follow up on every report with a resolution summary.' },
 ];
 
