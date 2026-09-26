@@ -151,9 +151,12 @@ function visibleProfile(array $row, ?array $viewer): ?array
             // so a member who hid their photos still looked fully visible.
             'photosVisibility' => $photosVisibility,
             'photosLocked' => $photosLocked,
-            // null whenever photos are locked — the client must never substitute
-            // a placeholder image here, or it shows a stranger's face as theirs.
-            'photo' => $photosLocked ? null : ($row['photo_url'] ?? null),
+            // A GATED endpoint, not the file path. The privacy tier is re-checked
+            // on every request, so switching photos to private instantly breaks
+            // any link that was already shared or cached.
+            'photo' => ($photosLocked || (string)($row['photo_url'] ?? '') === '')
+                ? null
+                : '/api/profiles/' . $ownerId . '/photo',
         ];
     }
     return [

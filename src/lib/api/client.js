@@ -27,6 +27,8 @@ export const api = {
   getProfiles: (filters = {}) => unwrap(profilesRepo.search(filters), 'Could not load profiles.'),
   getProfile: (id) => unwrap(profilesRepo.getById(id), 'Could not load this profile.'),
   updateProfile: (id, data) => unwrap(profilesRepo.save({ ...data, id }), 'Could not save this profile.'),
+  uploadPhoto: (file) => unwrap(profilesRepo.uploadPhoto(file), 'Could not upload that photo.'),
+  deletePhoto: () => unwrap(profilesRepo.deletePhoto(), 'Could not remove your photo.'),
 
   // ── Messages ──
   getConversations: () => unwrap(messagesRepo.conversations(), 'Could not load conversations.'),

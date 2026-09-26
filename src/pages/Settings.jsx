@@ -3,6 +3,7 @@ import { readIsDark, writeIsDark } from '../lib/theme';
 import Layout from '../layouts/MainLayout';
 import { useAuth } from '../lib/auth/AuthContext';
 import GetVerified from '../components/GetVerified';
+import PhotoUpload from '../components/PhotoUpload';
 import {
   Shield, Bell, User, Lock, Moon, Sun,
   AlertTriangle
@@ -171,10 +172,17 @@ export default function Settings() {
                   Save privacy
                 </button>
                 {privacySaved && <p className="text-sm text-success font-medium">{privacySaved}</p>}
-                <div className="pt-2 border-t border-line/10 mt-6">
-                  <GetVerified />
+
+                <div className="pt-4 border-t border-line/10">
+                  <h3 className="text-base font-semibold text-ink mb-1">Your photo</h3>
+                  <p className="text-sm text-muted mb-3">
+                    JPEG, PNG or WebP, up to 5&nbsp;MB. Location data embedded in the
+                    file (EXIF/GPS) is stripped before it is stored.
+                  </p>
+                  <PhotoUpload />
                 </div>
-                 <div className="pt-2 border-t border-line/10 mt-6">
+
+                <div className="pt-2 border-t border-line/10 mt-6">
                   <GetVerified />
                 </div>
                 <div className="pt-2">

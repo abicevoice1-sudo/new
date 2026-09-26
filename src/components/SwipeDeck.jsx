@@ -3,6 +3,7 @@ import { motion, useMotionValue, useTransform, animate, AnimatePresence } from '
 import { Heart, X, Star, Undo2, Lock, MapPin, Sparkles, RotateCcw, Search, ShieldCheck } from 'lucide-react';
 import CompatibilityIndex, { CompatibilityRing } from './CompatibilityIndex';
 import { computeCompatibility } from '../lib/compatibility';
+import { apiUrl } from '../lib/api/transport';
 
 const DECISIONS_KEY = 'shiarishta_deck_decisions';
 const INTERESTS_KEY = 'shiarishta_interests';
@@ -229,7 +230,7 @@ function CardFace({ profile, children, staticMode = false }) {
       style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', boxShadow: '0 22px 60px -22px rgba(0,0,0,.28)' }}>
       {/* Photo */}
       <div className="relative flex-shrink-0" style={{ height: '58%' }}>
-        <img src={profile.photo} alt={staticMode ? '' : `${profile.displayName} — profile photo`}
+        <img src={apiUrl(profile.photo)} alt={staticMode ? '' : `${profile.displayName} — profile photo`}
           className={`w-full h-full object-cover ${blurred ? 'blur-xl scale-110' : ''}`}
           draggable={false} loading="lazy" style={{ filter: blurred ? undefined : 'saturate(1.05)' }} />
         {blurred && (

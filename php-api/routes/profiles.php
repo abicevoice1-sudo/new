@@ -4,20 +4,275 @@
 // GET /:id one profile (404 when hidden)
 // GET /me, PUT /me owner read/update (mutations mirror profileMutations.js)
 // POST /:id/interest express interest; matched = mutual
+//
+// Photo routes are the one deliberate addition: the schema carried a photo_url
+// column that nothing ever wrote, so no member could set a photo at all.
 
 declare(strict_types=1);
 
 function routeProfiles(string $method, array $segments): void
 {
     $id = $segments[0] ?? null;
+    $sub = $segments[1] ?? null;
 
     if ($method === 'GET' && $id === null) { profilesList(); return; }
     if ($method === 'GET' && $id === 'me') { profileMe(); return; }
     if ($method === 'PUT' && $id === 'me') { profileUpdate(); return; }
+    if ($method === 'POST' && $id === 'me' && $sub === 'photo') { photoUpload(); return; }
+    if ($method === 'DELETE' && $id === 'me' && $sub === 'photo') { photoDelete(); return; }
+    if ($method === 'GET' && $id !== null && $sub === 'photo') { photoServe($id); return; }
     if ($method === 'GET' && $id !== null) { profileById($id); return; }
     if ($method === 'POST' && $id !== null && ($segments[1] ?? '') === 'interest') { profileInterest($id); return; }
 
     json(['error' => 'Profile endpoint not found'], 404);
+}
+
+// ─── Photo upload ────────────────────────────────────────────────────────────
+const PHOTO_MAX_BYTES  = 5_000_000; // 5 MB decoded
+const PHOTO_MAX_PIXELS = 40_000_000; // ~40MP; guards decompression bombs
+
+// Only formats with a real decoder. SVG is deliberately excluded: it is a
+// scriptable document and would be an XSS vector when served to other members.
+const PHOTO_ALLOWED = [
+    'image/jpeg' => 'jpg',
+    'image/pjpeg' => 'jpg',
+    'image/png'  => 'png',
+    'image/webp' => 'webp',
+];
+
+function photoUpload(): void
+{
+    $user = requireAuthUser();
+    $bytes = photoReadUpload();
+
+    if ($bytes === '') {
+        je('Attach a photo to upload.', 400);
+    }
+    if (strlen($bytes) > PHOTO_MAX_BYTES) {
+        je('Photo must be under 5 MB.', 400);
+    }
+
+    // 1. Sniff the ACTUAL bytes. The browser's Content-Type and any data: URI
+    //    prefix are attacker-controlled and must never decide this.
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = (string)$finfo->buffer($bytes);
+    if (!isset(PHOTO_ALLOWED[$mime])) {
+        je('Photo must be a JPEG, PNG or WebP image.', 400);
+    }
+
+    // 2. Confirm it really decodes, and get the real dimensions. A polyglot
+    //    (valid image header + embedded payload) passes a sniff but fails here.
+    $info = @getimagesizefromstring($bytes);
+    if ($info === false || (int)$info[0] < 1 || (int)$info[1] < 1) {
+        je('That file is not a readable image.', 400);
+    }
+    if ((int)$info[0] * (int)$info[1] > PHOTO_MAX_PIXELS) {
+        je('Photo resolution is too large.', 400);
+    }
+
+    // 2b. Structural completeness. Decoders stop reading at the first valid
+    //     image stream, so a file with PHP or a shell payload bolted on the end
+    //     still "decodes". Today that payload is inert — it is stored outside the
+    //     web root and served with nosniff + a real image content type — but
+    //     refusing it outright means no executable text ever lands on disk.
+    if (!imageIsComplete($bytes, $mime)) {
+        je('That file is not a complete image.', 400);
+    }
+
+    // 3. Strip EXIF. This is a privacy product and selfies carry GPS
+    //    coordinates. No GD required — a byte-level pass drops APP1/Exif.
+    $bytes = stripJpegExif($bytes);
+    $ext = PHOTO_ALLOWED[$mime];
+
+    // 4. Write it. The path is generated server-side from the owner's UUID; the
+    //    client filename is never used, so traversal is impossible.
+    $dir = photoBaseDir() . '/' . $user['uid'];
+    if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+        je('Could not create photo directory.', 500);
+    }
+    $path = $dir . '/' . uuid() . '.' . $ext;
+    if (@file_put_contents($path, $bytes) === false) {
+        je('Could not save your photo.', 500);
+    }
+
+    // 5. Drop the previous photo so a member never leaves files behind.
+    $prev = db()->prepare('SELECT photo_url FROM profiles WHERE user_id = ? LIMIT 1');
+    $prev->execute([$user['uid']]);
+    $old = (string)($prev->fetch()['photo_url'] ?? '');
+    db()->prepare('UPDATE profiles SET photo_url = ?, updated_at = UTC_TIMESTAMP() WHERE user_id = ?')
+        ->execute([$path, $user['uid']]);
+    if ($old !== '' && $old !== $path) {
+        @unlink($old);
+    }
+
+    json(['ok' => true, 'photo' => '/api/profiles/' . $user['uid'] . '/photo'], 201);
+}
+
+function photoDelete(): void
+{
+    $user = requireAuthUser();
+    $stmt = db()->prepare('SELECT photo_url FROM profiles WHERE user_id = ? LIMIT 1');
+    $stmt->execute([$user['uid']]);
+    $old = (string)($stmt->fetch()['photo_url'] ?? '');
+
+    db()->prepare('UPDATE profiles SET photo_url = NULL, updated_at = UTC_TIMESTAMP() WHERE user_id = ?')
+        ->execute([$user['uid']]);
+    if ($old !== '') {
+        @unlink($old);
+    }
+    json(['ok' => true]);
+}
+
+// Rejects trailing-byte payloads by checking the file ends where a complete
+// image must end. PNG must terminate with the IEND chunk; JPEG with EOI (FFD9).
+function imageIsComplete(string $bytes, string $mime): bool
+{
+    if ($mime === 'image/png') {
+        return str_ends_with($bytes, "\x00\x00\x00\x00IEND\xAE\x42\x60\x82");
+    }
+    if ($mime === 'image/jpeg' || $mime === 'image/pjpeg') {
+        // Allow trailing whitespace only; anything else after EOI is a payload.
+        return str_ends_with(rtrim($bytes, "\x00\r\n\t "), "\xFF\xD9");
+    }
+    if ($mime === 'image/webp') {
+        return str_contains(substr($bytes, -12, 4), 'WEBP') || str_ends_with($bytes, 'VP8 ');
+    }
+    return true;
+}
+
+// Serves the bytes — and re-checks privacy on EVERY request, so hiding your
+// photos takes effect immediately for any link that was already shared.
+function photoServe(string $id): void
+{
+    $stmt = db()->prepare('SELECT user_id, photo_url, photos_visibility, visibility, is_blocked FROM profiles WHERE user_id = ? LIMIT 1');
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+
+    if (!$row || !empty($row['is_blocked']) || (string)($row['photo_url'] ?? '') === '') {
+        je('Not found.', 404);
+    }
+
+    $viewer = currentUser();
+    $isOwner = $viewer !== null && (string)$viewer['uid'] === (string)$row['user_id'];
+
+    if (!$isOwner) {
+        // A private profile is invisible, photo or not — same 404, no probing.
+        if ((string)($row['visibility'] ?? 'members') === 'private') {
+            je('Not found.', 404);
+        }
+        $tier = (string)($row['photos_visibility'] ?? 'members');
+        if ($tier === 'private') {
+            je('Not found.', 404);
+        }
+        if ($tier !== 'public' && $viewer === null) {
+            je('Sign in to view this photo.', 401);
+        }
+        if ($viewer !== null && pairBlocked((string)$row['user_id'], (string)$viewer['uid'])) {
+            je('Not found.', 404);
+        }
+    }
+
+    // Re-validate the path against the photo root even though we wrote it: a
+    // tampered storage_path must not be able to read arbitrary files.
+    $base = realpath(photoBaseDir()) ?: photoBaseDir();
+    $real = realpath((string)$row['photo_url']) ?: '';
+    if ($real === '' || strncmp($real, $base, strlen($base)) !== 0) {
+        je('Photo unavailable.', 404);
+    }
+
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($real) ?: 'application/octet-stream';
+    $size = filesize($real);
+
+    header('Content-Type: ' . $mime);
+    header('Content-Length: ' . $size);
+    header('Cache-Control: private, no-store, max-age=0');
+    header('X-Content-Type-Options: nosniff');
+    header('Content-Disposition: inline');
+    readfile($real);
+    exit;
+}
+
+function photoBaseDir(): string
+{
+    $dir = trim((string)(getenv('UPLOAD_DIR') ?: (__DIR__ . '/../uploads'))) . '/photos';
+    if (!is_dir($dir)) { @mkdir($dir, 0775, true); }
+    return $dir;
+}
+
+// Accepts multipart/form-data (what a browser sends) and a base64 JSON body
+// (what API clients use, matching the verification endpoint).
+function photoReadUpload(): string
+{
+    if (!empty($_FILES['photo']) && is_array($_FILES['photo'])) {
+        $f = $_FILES['photo'];
+        $err = (int)($f['error'] ?? UPLOAD_ERR_NO_FILE);
+        if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) {
+            je('Photo must be under 5 MB.', 400);
+        }
+        if ($err !== UPLOAD_ERR_OK) {
+            je('Upload failed.', 400);
+        }
+        $tmp = (string)$f['tmp_name'];
+        // is_uploaded_file matters: it refuses any path the client supplied.
+        if ($tmp === '' || !is_uploaded_file($tmp)) {
+            je('Upload failed.', 400);
+        }
+        $data = @file_get_contents($tmp);
+        return $data === false ? '' : $data;
+    }
+
+    $raw = file_get_contents('php://input');
+    if ($raw === false || trim($raw) === '') return '';
+    $payload = json_decode($raw, true);
+    if (!is_array($payload)) return '';
+    $b64 = trim((string)($payload['photo'] ?? $payload['imageBase64'] ?? $payload['data'] ?? ''));
+    if ($b64 === '') return '';
+    // Strip any data: URI prefix, then decode strictly.
+    $b64 = (string)preg_replace('#^data:image/[a-z0-9.+-]+;base64,#i', '', $b64);
+    $decoded = base64_decode($b64, true);
+    return $decoded === false ? '' : $decoded;
+}
+
+// Removes the APP1/Exif segment from a JPEG. A phone selfie routinely carries
+// GPS coordinates in EXIF, which would otherwise ship a member's home location
+// to every viewer. No GD required — this is a segment-level byte edit.
+function stripJpegExif(string $jpeg): string
+{
+    if (strlen($jpeg) < 4 || substr($jpeg, 0, 2) !== "\xFF\xD8") {
+        return $jpeg; // not a JPEG; PNG/WebP carry no APP1
+    }
+
+    $out = "\xFF\xD8";
+    $i = 2;
+    $len = strlen($jpeg);
+
+    while ($i + 3 < $len) {
+        if ($jpeg[$i] !== "\xFF") { $out .= substr($jpeg, $i); return $out; }
+        $marker = ord($jpeg[$i + 1]);
+
+        // Standalone markers carry no length field.
+        if ($marker === 0xD8 || $marker === 0x01 || ($marker >= 0xD0 && $marker <= 0xD7)) {
+            $out .= substr($jpeg, $i, 2);
+            $i += 2;
+            continue;
+        }
+        if ($marker === 0xDA) {            // start of scan: the rest is entropy data
+            $out .= substr($jpeg, $i);
+            return $out;
+        }
+
+        $segLen = @unpack('n', substr($jpeg, $i + 2, 2))[1] ?? 0;
+        if ($segLen < 2 || $i + 2 + $segLen > $len) {
+            $out .= substr($jpeg, $i);    // malformed: keep the remainder intact
+            return $out;
+        }
+        // 0xE1 = APP1, where Exif and XMP live. Drop it.
+        if ($marker !== 0xE1) {
+            $out .= substr($jpeg, $i, 2 + $segLen);
+        }
+        $i += 2 + $segLen;
+    }
+    return $out;
 }
 
 function profilesList(): void

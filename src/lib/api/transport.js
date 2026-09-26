@@ -7,8 +7,28 @@ const DEFAULT_BASE = 'http://127.0.0.1:8888';
 const BASE = (import.meta.env?.VITE_API_URL || DEFAULT_BASE).replace(/\/$/, '');
 export const useRemote = true;
 
+// Resolves an API-relative path against the API origin. The server returns
+// paths like `/api/profiles/:id/photo`; on a split-origin deploy (Vite on :5173,
+// PHP on :8091, or a CDN front-end with api. subdomain) a relative src would be
+// requested from the FRONT-END host and silently render a broken image.
+export const apiUrl = (p) => {
+  if (!p) return null;
+  if (/^https?:\/\//i.test(p)) return p;
+  if (p.startsWith('data:')) return p;
+  return `${BASE}${p.startsWith('/') ? '' : '/'}${p}`;
+};
+
 function headers(extra = {}) {
-  const h = { 'Content-Type': 'application/json', ...extra };
+  // A header explicitly set to undefined must be OMITTED, not serialised as the
+  // literal string "undefined". Passing { 'Content-Type': undefined } to override
+  // the JSON default would otherwise send `content-type: undefined`, which stops
+  // the server ever seeing multipart/form-data — so $_FILES stays empty and the
+  // upload is rejected. The browser then adds the real boundary itself.
+  const h = { 'Content-Type': 'application/json' };
+  for (const [k, v] of Object.entries(extra)) {
+    if (v === undefined || v === null) delete h[k];
+    else h[k] = v;
+  }
   try {
     const raw = localStorage.getItem('sh_token');
     if (raw) h.Authorization = `Bearer ${raw}`;
@@ -28,6 +48,16 @@ export const http = {
   post: (path, body) => request(path, { method: 'POST', body: JSON.stringify(body ?? {}) }),
   put: (path, body) => request(path, { method: 'PUT', body: JSON.stringify(body ?? {}) }),
   del: (path) => request(path, { method: 'DELETE' }),
+  // Returns the raw Response (not JSON) for binary endpoints. Accepts either a
+  // path or an already-absolute URL — apiUrl() output must not be double-prefixed
+  // with BASE.
+  raw: async (path) => {
+    const url = /^https?:\/\//i.test(path) ? path : `${BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+    return fetch(url, { headers: headers() });
+  },
+  // Multipart upload. Content-Type is deliberately NOT set: the browser must add
+  // the multipart boundary itself, and forcing a header breaks the parse.
+  upload: (path, formData) => request(path, { method: 'POST', body: formData, headers: { 'Content-Type': undefined } }),
   setToken: (token) => {
     try {
       if (token) localStorage.setItem('sh_token', token);

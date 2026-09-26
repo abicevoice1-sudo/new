@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import Layout from '../layouts/MainLayout';
 import { useAuth } from '../lib/auth/AuthContext';
 import { api } from '../lib/api/client';
+import { apiUrl } from '../lib/api/transport';
 import { computeProfileCompleteness } from '../lib/onboardingData';
 import { getMyProfile } from '../lib/storage';
 import { useState, useEffect, useMemo } from 'react';
@@ -158,7 +159,7 @@ export default function Dashboard() {
                   >
                      <Link to={'/profiles/' + p.id} className="card card-interactive overflow-hidden block group">
                        <div className="aspect-[4/3] overflow-hidden" style={{ background: 'var(--color-surface)' }}>
-                         <img src={p.photo} alt={p.displayName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} />
+                         <img src={apiUrl(p.photo)} alt={p.displayName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} />
                        </div>
                       <div className="p-3">
                         <p className="font-medium text-sm truncate" style={{ color: 'var(--color-ink)' }}>{p.displayName}, {p.age}</p>

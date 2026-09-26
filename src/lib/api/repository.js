@@ -58,6 +58,20 @@ export const profilesRepo = {
     write('profiles', next);
     return next[idx >= 0 ? idx : next.length - 1];
   },
+  // Photo upload goes to the server only. There is deliberately no local-storage
+  // fallback: a photo in demo mode would be a data URL pretending to be a
+  // member's real image, which is the exact misrepresentation this product is
+  // trying to avoid.
+  async uploadPhoto(file) {
+    if (!useRemote) throw new Error('Photo upload needs the live platform.');
+    const fd = new FormData();
+    fd.append('photo', file, file.name || 'photo.jpg');
+    return http.upload('/api/profiles/me/photo', fd);
+  },
+  async deletePhoto() {
+    if (!useRemote) throw new Error('Photo upload needs the live platform.');
+    return http.del('/api/profiles/me/photo');
+  },
 };
 
 export const messagesRepo = {

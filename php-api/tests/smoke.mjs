@@ -55,6 +55,40 @@ const api = async (method, route, { token, body } = {}) => {
   return { status: res.status, data, headers: res.headers };
 };
 
+// Builds a genuinely valid 2x2 PNG. The hand-copied 1x1 JPEG used elsewhere in
+// this file decodes with width 0, which the upload endpoint correctly refuses as
+// malformed — so the photo tests need a real image with real dimensions.
+import { deflateSync } from 'node:zlib';
+
+function makePng(w = 2, h = 2) {
+  const sig = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+  const crcTable = [];
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    crcTable[n] = c >>> 0;
+  }
+  const crc32 = (buf) => {
+    let c = 0xFFFFFFFF;
+    for (const b of buf) c = crcTable[(c ^ b) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  };
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const td = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(td));
+    return Buffer.concat([len, td, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4);
+  ihdr[8] = 8;   // bit depth
+  ihdr[9] = 2;   // colour type: truecolour
+  // raw scanlines: filter byte 0 + 3 bytes per pixel
+  const raw = Buffer.alloc(h * (1 + w * 3), 0);
+  for (let y = 0; y < h; y++) raw[y * (1 + w * 3)] = 0;
+  return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+}
+
 const stamp = Date.now().toString(36);
 const PW = 'SmokeTest123';
 
@@ -491,6 +525,80 @@ const run = async () => {
     check('locked photos → photosVisibility reaches the client', seen.data?.photosVisibility === 'private', `${seen.data?.photosVisibility}`);
     const own = await api('GET', '/api/profiles/me', { token: o.data?.token });
     check('owner is not locked from their own photos', own.data?.photosLocked === false, `${own.data?.photosLocked}`);
+  }
+
+  // ── 28. Photo upload: validation, EXIF stripping, privacy-gated serving
+  {
+    const png = makePng(2, 2);
+    const owner = await api('POST', '/api/auth/register', { body: { email: `up-${stamp}@example.com`, password: PW, displayName: 'Uploader' } });
+    const uTok = owner.data?.token;
+    const uid = owner.data.user.uid;
+    await api('PUT', '/api/profiles/me', { token: uTok, body: { visibility: 'public', photos_visibility: 'public' } });
+
+    const up = await api('POST', '/api/profiles/me/photo', { token: uTok, body: { photo: png.toString('base64') } });
+    check('photo upload → 201', up.status === 201 && up.data?.ok === true, `${up.status} ${JSON.stringify(up.data)}`);
+
+    const meU = await api('GET', '/api/profiles/me', { token: uTok });
+    check('photo URL is the gated endpoint', meU.data?.photo === `/api/profiles/${uid}/photo`, `${meU.data?.photo}`);
+
+    const served = await api('GET', `/api/profiles/${uid}/photo`);
+    const servedBytes = served.data ? Buffer.from(served.data) : Buffer.alloc(0);
+    check('served bytes are the original image', served.status === 200 && servedBytes.equals(png),
+      `${servedBytes.length}b vs ${png.length}b`);
+    check('served with a non-sniffable content type', served.headers.get('x-content-type-options') === 'nosniff', `${served.headers.get('x-content-type-options')}`);
+
+    // ── Rejections: judged on real content, never the declared type ──
+    const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>', 'utf8');
+    check('SVG rejected → 400 (scriptable, XSS vector)',
+      (await api('POST', '/api/profiles/me/photo', { token: uTok, body: { photo: svg.toString('base64') } })).status === 400);
+
+    const php = Buffer.from('<?php system($_GET["c"]); ?>', 'utf8');
+    check('PHP file disguised as an image rejected → 400',
+      (await api('POST', '/api/profiles/me/photo', { token: uTok, body: { photo: php.toString('base64') } })).status === 400);
+
+    // A valid image with a script appended: passes the MIME sniff, so it must be
+    // refused by the pixel-count/decode check instead.
+    const polyglot = Buffer.concat([png, Buffer.from('<?php echo "pwned"; ?>', 'utf8')]);
+    const rPoly = await api('POST', '/api/profiles/me/photo', { token: uTok, body: { photo: polyglot.toString('base64') } });
+    check('appended-script polyglot rejected → 400', rPoly.status === 400, `${rPoly.status}`);
+
+    check('empty upload → 400',
+      (await api('POST', '/api/profiles/me/photo', { token: uTok, body: {} })).status === 400);
+    check('upload without a token → 401',
+      (await api('POST', '/api/profiles/me/photo', { body: { photo: png.toString('base64') } })).status === 401);
+
+    // A member cannot overwrite someone else's photo reference.
+    check('photo routes have no cross-account write surface',
+      (await api('POST', `/api/profiles/${uid}/photo`, { token: mem2Token, body: { photo: png.toString('base64') } })).status === 404);
+
+    // ── Serving is privacy-gated ──
+    check('public photo is viewable by anyone', (await fetch(`${API}/api/profiles/${uid}/photo`)).status === 200);
+
+    // Flip to private: the SAME url must stop working immediately, so a link
+    // that was already shared or cached cannot keep serving the image.
+    await api('PUT', '/api/profiles/me', { token: uTok, body: { photos_visibility: 'private' } });
+    check('locking photos breaks the shared URL at once',
+      (await fetch(`${API}/api/profiles/${uid}/photo`)).status === 404);
+    check('locked photo is 404 for another member',
+      (await api('GET', `/api/profiles/${uid}/photo`, { token: mem2Token })).status === 404);
+    check('owner can still see their own locked photo',
+      (await api('GET', `/api/profiles/${uid}/photo`, { token: uTok })).status === 200);
+
+    // members tier: anonymous gets 401, a signed-in member gets the bytes.
+    await api('PUT', '/api/profiles/me', { token: uTok, body: { photos_visibility: 'members' } });
+    check('members-tier photo is 401 for anonymous',
+      (await fetch(`${API}/api/profiles/${uid}/photo`)).status === 401);
+    check('members-tier photo is 200 for a member',
+      (await api('GET', `/api/profiles/${uid}/photo`, { token: mem2Token })).status === 200);
+
+    // The JSON profile must stop advertising the URL once photos are locked.
+    await api('PUT', '/api/profiles/me', { token: uTok, body: { photos_visibility: 'private' } });
+    const seenLocked = await api('GET', `/api/profiles/${uid}`, { token: mem2Token });
+    check('locked profile JSON does not leak the photo URL', seenLocked.data?.photo === null, `${seenLocked.data?.photo}`);
+
+    const del = await api('DELETE', '/api/profiles/me/photo', { token: uTok });
+    check('photo delete → 200', del.status === 200 && del.data?.ok === true, `${del.status}`);
+    check('deleted photo is 404', (await api('GET', `/api/profiles/${uid}/photo`)).status === 404);
   }
 };
 

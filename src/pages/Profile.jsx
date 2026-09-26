@@ -9,6 +9,7 @@ import { ArrowLeft, ShieldCheck, MapPin, Heart, MessageCircle, Bookmark, Lock, U
 import CompatibilityIndex from '../components/CompatibilityIndex';
 import { ReportFlag } from '../components/ReportFlag';
 import { computeCompatibility } from '../lib/compatibility';
+import { apiUrl } from '../lib/api/transport';
 
 // No stock/placeholder photo is injected into the gallery. A member who hides
 // their photos gets an honest "photos are private" state, never someone else's
@@ -108,7 +109,7 @@ export default function Profile() {
             <div className="rounded-2xl overflow-hidden shadow-lg" style={{ background: 'var(--color-elevated)', border: '1px solid var(--color-border)' }}>
               <div className="aspect-[3/4] relative" style={{ background: 'var(--color-surface)' }}>
                  {profile.gallery.length > 0 ? (
-                  <img src={profile.gallery[activePhoto]} alt={profile.displayName} className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} />
+                  <img src={apiUrl(profile.gallery[activePhoto])} alt={profile.displayName} className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} />
                  ) : (
                   /* No photo to show. Never substitute a stock face here — that
                      misrepresents the member and puts a stranger's likeness on
@@ -130,7 +131,7 @@ export default function Profile() {
               </div>
               {profile.gallery.length > 1 && (
                 <div className="flex gap-2 p-3">
-                   {profile.gallery.map((photo, i) => (<button key={i} onClick={() => setActivePhoto(i)} aria-label={`View photo ${i + 1} of ${profile.displayName}`} className="flex-1 aspect-square rounded-lg overflow-hidden" style={{ outline: i === activePhoto ? '2px solid var(--color-primary)' : 'none', opacity: i === activePhoto ? 1 : 0.6 }}><img src={photo} alt="" className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} /></button>))}
+                   {profile.gallery.map((photo, i) => (<button key={i} onClick={() => setActivePhoto(i)} aria-label={`View photo ${i + 1} of ${profile.displayName}`} className="flex-1 aspect-square rounded-lg overflow-hidden" style={{ outline: i === activePhoto ? '2px solid var(--color-primary)' : 'none', opacity: i === activePhoto ? 1 : 0.6 }}><img src={apiUrl(photo)} alt="" className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} /></button>))}
                 </div>
               )}
             </div>

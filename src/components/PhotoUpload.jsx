@@ -1,0 +1,109 @@
+import { useEffect, useRef, useState } from 'react';
+import { api } from '../lib/api/client';
+import { useAuth } from '../lib/auth/AuthContext';
+import { useAuthedImage } from '../lib/api/useAuthedImage';
+import { Upload, Trash2, Loader2 } from 'lucide-react';
+
+const MAX_BYTES = 5_000_000;
+const ACCEPT = ['image/jpeg', 'image/png', 'image/webp'];
+
+// Uploads the member's own photo to the server. The checks here are for fast
+// feedback only - the server re-validates the real bytes, so a client-side check
+// is never what stands between a payload and disk.
+export default function PhotoUpload() {
+  const { user } = useAuth();
+  const [photo, setPhoto] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+  const inputRef = useRef(null);
+  const [bust, setBust] = useState(0);
+  // The preview must be fetched with the bearer token, like every other photo:
+  // a plain <img src> cannot send Authorization and would 401 on a private tier.
+  const { url: photoUrl } = useAuthedImage(photo, bust);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getProfile('me')
+      .then((p) => { if (!cancelled) setPhoto(p?.photo ?? null); })
+      .catch(() => { if (!cancelled) setPhoto(null); });
+    return () => { cancelled = true; };
+  }, [user?.uid, bust]);
+
+  const onPick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';               // allow re-picking the same file
+    if (!file) return;
+    setMsg(''); setErr('');
+
+    if (!ACCEPT.includes(file.type)) {
+      setErr('Please choose a JPEG, PNG or WebP image.');
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      setErr('That photo is over 5 MB. Please choose a smaller one.');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await api.uploadPhoto(file);
+      setBust((b) => b + 1);           // bust any cached copy
+      setMsg('Photo uploaded.');
+    } catch (ex) {
+      setErr(ex?.message || 'Could not upload that photo.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onRemove = async () => {
+    setBusy(true); setMsg(''); setErr('');
+    try {
+      await api.deletePhoto();
+      setPhoto(null);
+      setBust((b) => b + 1);
+      setMsg('Photo removed.');
+    } catch (ex) {
+      setErr(ex?.message || 'Could not remove your photo.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-4 flex-wrap">
+      <div
+        className="w-24 h-24 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0"
+        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+      >
+        {photoUrl ? (
+          <img src={photoUrl} alt="Your photo" className="w-full h-full object-cover" />
+        ) : (
+          <span className="text-xs text-muted px-2 text-center">No photo</span>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
+          <button type="button" onClick={() => inputRef.current?.click()} disabled={busy}
+            className="button primary px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-60">
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            {photo ? 'Replace photo' : 'Upload a photo'}
+          </button>
+          {photo && (
+            <button type="button" onClick={onRemove} disabled={busy}
+              className="button px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-60"
+              style={{ border: '1px solid var(--color-border)' }}>
+              <Trash2 className="w-4 h-4" /> Remove
+            </button>
+          )}
+        </div>
+        {msg && <p className="text-sm text-success font-medium">{msg}</p>}
+        {err && <p className="text-sm font-medium" style={{ color: 'var(--color-danger, #dc2626)' }} role="alert">{err}</p>}
+      </div>
+
+      <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={onPick} className="hidden" />
+    </div>
+  );
+}

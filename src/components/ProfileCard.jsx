@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Heart, Bookmark, MapPin, Briefcase, Shield, Lock, Sparkles } from 'lucide-react';
+import { useAuthedImage } from '../lib/api/useAuthedImage';
 
 function excerptText(value, maxLength = 90) {
   const text = String(value || '').trim();
@@ -17,7 +18,10 @@ export default function ProfileCard({ profile, className = '' }) {
   // field was never returned, so this always evaluated false and the "blurred"
   // state could never appear.
   const photoLocked = profile.photosLocked === true;
-  const hasPhoto = Boolean(profile.photo) && !photoLocked;
+  // Photos are fetched with the bearer token: a plain <img src> cannot send the
+  // Authorization header, so a members/private tier would 401 and render broken.
+  const { url: photoUrl } = useAuthedImage(photoLocked ? null : profile.photo);
+  const hasPhoto = Boolean(photoUrl);
   const about = excerptText(profile.about);
 
   return (
@@ -35,7 +39,7 @@ export default function ProfileCard({ profile, className = '' }) {
           {hasPhoto && (
             <img
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
-              src={profile.photo}
+              src={photoUrl}
               alt={profile.displayName}
               loading="lazy"
               decoding="async"
